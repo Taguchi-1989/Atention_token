@@ -1,0 +1,8 @@
+task_id: EXPENSE_INPUT_V1
+description: 経費精算の交通費入力
+start_condition: logged_in_home
+goal_condition: expense_saved
+input_data:
+  date: 2026-04-01
+  amount: 1280
+  route: 東京-新宿
