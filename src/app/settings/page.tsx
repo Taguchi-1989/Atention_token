@@ -52,7 +52,7 @@ export default function SettingsPage() {
                     </div>
                 </header>
 
-                <div className="glass-panel p-8 space-y-8">
+                <div className={`glass-panel p-8 space-y-8 ${loading ? 'opacity-50' : ''}`}>
                     {/* Ollama Connection Section */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 text-lg font-semibold text-white border-b border-white/10 pb-2">

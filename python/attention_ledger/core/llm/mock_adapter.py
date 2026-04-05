@@ -1,51 +1,49 @@
-```python
 from typing import Optional
 from .adapter import LLMAdapter
 from .models import LLMResponse, TokenUsage
 import json
 
-class Settings:
-    _instance = None
-    
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(Settings, cls).__new__(cls)
-            cls._instance.ollama_url = "http://localhost:11434"
-            cls._instance.model_name = "llama3"
-            cls._instance.temperature = 0.7
-        return cls._instance
 
-settings = Settings()
+# Predefined mock action sequence to simulate multi-step task execution
+_MOCK_ACTIONS = [
+    {"action": "click", "target": "start_button", "confidence": "medium", "note": "Starting the task"},
+    {"action": "input", "target": "date_field", "confidence": "high", "note": "Entering date value"},
+    {"action": "input", "target": "amount_field", "confidence": "high", "note": "Entering amount"},
+    {"action": "input", "target": "description_field", "confidence": "medium", "note": "Filling description"},
+    {"action": "click", "target": "submit_button", "confidence": "high", "note": "Submitting the form"},
+    {"action": "done", "target": "confirmation", "confidence": "high", "note": "Task completed successfully"},
+]
+
 
 class MockAdapter(LLMAdapter):
+    """
+    A mock adapter that returns a sequence of predefined actions for testing
+    without a running LLM. Simulates realistic multi-step task execution.
+    """
+
+    def __init__(self):
+        self._call_count = 0
+
     def get_token_usage_cost(self, usage: TokenUsage) -> float:
-        # Mock adapters typically don't incur real costs, so return 0
         return 0.0
 
-    """
-    A mock adapter that returns predefined responses for testing 
-    without a running LLM.
-    """
     async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> LLMResponse:
-        # Simulate a simple decision based on keyword matching or random
-        content = json.dumps({
-            "action": "input", 
-            "target": "expense_field", 
-            "confidence": "high", 
-            "note": "Mocking input action for testing"
-        })
-        
-        # If the prompt suggests we are at the end or goal
-        if "goal" in prompt.lower() or "submit" in prompt.lower():
-             content = json.dumps({
-                "action": "done", 
-                "target": "submit_button", 
-                "confidence": "high", 
-                "note": "Goal achieved in mock"
-            })
+        # Pick action from sequence; last action repeats if exceeded
+        idx = min(self._call_count, len(_MOCK_ACTIONS) - 1)
+        action = _MOCK_ACTIONS[idx]
+        self._call_count += 1
+
+        # Vary token counts slightly per step for realistic metrics
+        input_tokens = 40 + self._call_count * 10
+        output_tokens = 15 + self._call_count * 5
+        content = json.dumps(action)
 
         return LLMResponse(
             content=content,
-            usage=TokenUsage(input_tokens=50, output_tokens=20, total_tokens=70),
-            raw_response={"mock": True}
+            usage=TokenUsage(
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                total_tokens=input_tokens + output_tokens,
+            ),
+            raw_response={"mock": True, "step": self._call_count}
         )

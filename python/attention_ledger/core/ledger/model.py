@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime
 from ..metrics.model import CoreMetrics
 
 class LedgerRecord(BaseModel):
@@ -17,4 +16,5 @@ class Baseline(BaseModel):
     engine: str
     system_prompt_hash: str
     temperature: float
-    created_at: str # ISO format
+    created_at: str  # ISO format
+    system_prompt: Optional[str] = None

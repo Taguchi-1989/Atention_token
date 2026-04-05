@@ -3,6 +3,7 @@ node_modules/
 .next/
 out/
 dist/
+.turbo/
 
 # Python
 __pycache__/
@@ -10,6 +11,12 @@ __pycache__/
 .venv/
 venv/
 .python-version
+*.egg-info/
+.pytest_cache/
+
+# Database
+*.db
+*.sqlite
 
 # OS
 .DS_Store
@@ -18,3 +25,12 @@ Thumbs.db
 # Logs
 *.log
 
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp

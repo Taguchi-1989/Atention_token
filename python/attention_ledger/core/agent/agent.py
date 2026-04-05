@@ -65,17 +65,22 @@ Return ONLY valid JSON.
             
             # Record history
             self.history.append({
-                "action": action.dict(),
+                "action": action.model_dump(),
                 "raw_response": response.content,
-                "token_usage": response.usage.dict()
+                "token_usage": response.usage.model_dump()
             })
-            
+
             return action
         except (json.JSONDecodeError, ValueError) as e:
-            # Fallback for error handling
-            # In a real scenario, we might want to auto-correct or retry the prompt
-            return AgentAction(
-                action="retry", 
-                confidence="low", 
+            # Record failed attempt so token usage is still tracked
+            fallback = AgentAction(
+                action="retry",
+                confidence="low",
                 note=f"Failed to parse JSON response: {str(e)}"
             )
+            self.history.append({
+                "action": fallback.model_dump(),
+                "raw_response": response.content,
+                "token_usage": response.usage.model_dump()
+            })
+            return fallback

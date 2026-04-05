@@ -3,21 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Play, FileText, History, Settings, Zap, ListChecks } from 'lucide-react';
-import { clsx } from 'clsx';
-
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex h-screen bg-background text-white overflow-hidden font-sans">
-      {/* Sidebar */}
-      <aside className="w-64 bg-surface border-r border-border flex flex-col p-5">
-        <div className="mb-8 pl-3 flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-             <Zap size={18} className="text-white fill-current" />
+import { LayoutDashboard, Play, History, Settings, Zap, ListChecks } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export default function DashboardLayout({
@@ -42,6 +28,10 @@ export default function DashboardLayout({
           <NavItem href="/" icon={<LayoutDashboard size={20} />} label="Overview" />
           <NavItem href="/tasks" icon={<Play size={20} />} label="Tasks" />
           <NavItem href="/sus" icon={<ListChecks size={20} />} label="SUS Survey" />
+          <NavItem href="/ledger" icon={<History size={20} />} label="Ledger" />
+          <NavItem href="/settings" icon={<Settings size={20} />} label="Settings" />
+        </nav>
+
         <div className="text-xs text-text-muted text-center mt-4">
           v0.1.0 (Local MVP)
         </div>
@@ -61,7 +51,7 @@ export default function DashboardLayout({
   );
 }
 
-function NavItem({ href, icon, label }: { href: string, icon: React.ReactNode, label: string }) {
+function NavItem({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
   const pathname = usePathname();
   const isActive = pathname === href;
 

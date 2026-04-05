@@ -1,14 +1,10 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
+// ── Tasks ──
+
 export async function fetchTasks() {
   const res = await fetch(`${API_BASE_URL}/tasks`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to fetch tasks');
-  return res.json();
-}
-
-export async function fetchRuns(includeMetrics: boolean = false) {
-  const res = await fetch(`${API_BASE_URL}/runs?limit=50&include_metrics=${includeMetrics}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error('Failed to fetch runs');
   return res.json();
 }
 
@@ -22,21 +18,82 @@ export async function runTask(taskId: string, baselineId: string, mock: boolean 
   return res.json();
 }
 
-export async function submitSus(taskId: string, baselineId: string, responses: number[]) {
-  const res = await fetch(`${API_BASE_URL}/sus`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ task_id: taskId, baseline_id: baselineId, responses }),
-  });
-  if (!res.ok) throw new Error('Failed to submit SUS');
-  return res.json();
-}
-
 export async function fetchTaskStatus(taskId: string) {
   const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/status`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to fetch status');
   return res.json();
 }
+
+// ── Runs ──
+
+export async function fetchRuns(includeMetrics: boolean = false) {
+  const res = await fetch(`${API_BASE_URL}/runs?limit=50&include_metrics=${includeMetrics}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Failed to fetch runs');
+  return res.json();
+}
+
+// ── Baselines ──
+
+export async function fetchBaselines() {
+  const res = await fetch(`${API_BASE_URL}/baselines`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Failed to fetch baselines');
+  return res.json();
+}
+
+export async function createBaseline(data: {
+  baseline_id: string;
+  model?: string;
+  engine?: string;
+  temperature?: number;
+  system_prompt?: string;
+}) {
+  const res = await fetch(`${API_BASE_URL}/baselines`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to create baseline');
+  return res.json();
+}
+
+export async function deleteBaseline(baselineId: string) {
+  const res = await fetch(`${API_BASE_URL}/baselines/${baselineId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete baseline');
+  return res.json();
+}
+
+// ── Metrics Diff ──
+
+export async function fetchMetricsDiff(taskId: string, baselineA: string, baselineB: string) {
+  const params = new URLSearchParams({ task_id: taskId, baseline_a: baselineA, baseline_b: baselineB });
+  const res = await fetch(`${API_BASE_URL}/metrics/diff?${params}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Failed to fetch diff');
+  return res.json();
+}
+
+// ── Dashboard Stats ──
+
+export async function fetchStats() {
+  const res = await fetch(`${API_BASE_URL}/stats`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Failed to fetch stats');
+  return res.json();
+}
+
+// ── SUS ──
+
+export async function submitSus(runId: number, responses: number[]) {
+  const res = await fetch(`${API_BASE_URL}/sus`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ run_id: runId, responses }),
+  });
+  if (!res.ok) throw new Error('Failed to submit SUS');
+  return res.json();
+}
+
+// ── Config ──
 
 export async function fetchConfig() {
   const res = await fetch(`${API_BASE_URL}/config`, { cache: 'no-store' });

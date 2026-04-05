@@ -1,30 +1,23 @@
-import asyncio
-from typing import List, Optional
+from typing import List, Optional, Callable
 from ..agent.agent import FirstTimeUserAgent, AgentAction
 from ..task.model import TaskScenario
 from ..metrics.model import CoreMetrics
 from ..metrics.sus import compute_sus_inspired_score
-from ..ledger.model import LedgerRecord # Using LedgerRecord which corresponds to ExecutionResult
-from datetime import datetime
+from ..ledger.model import LedgerRecord
+from datetime import datetime, timezone
 import os
 from .simulator import SimpleWebSimulator
+
 
 class ExecutionEngine:
     def __init__(self, agent: FirstTimeUserAgent):
         self.agent = agent
 
     def _load_simulator(self, task_id: str) -> Optional[SimpleWebSimulator]:
-        # Try to find corresponding HTML file in tasks dir
-        # Assuming tasks are in python/tasks/
+        """Try to find corresponding HTML file in tasks dir."""
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
         html_path = os.path.join(base_dir, "tasks", f"{task_id.lower()}.html")
         
-        # Fallback for upper/lowercase mismatch
-        if not os.path.exists(html_path):
-             # Try looking in the same dir as the task yaml might be?
-             # For MVP, strict path:
-             pass
-
         if os.path.exists(html_path):
             with open(html_path, 'r', encoding='utf-8') as f:
                 return SimpleWebSimulator(f.read())
@@ -86,7 +79,7 @@ class ExecutionEngine:
             if simulator:
                 # Execute on simulator
                 if action.action in ['input', 'click']:
-                    valid = simulator.execute_action(action.action, action.target, action.value)
+                    valid = simulator.execute_action(action.action, action.target, getattr(action, 'value', None))
                     if not valid and action.action != 'done':
                         action_success = False
                         current_state = f"ERROR: Element '{action.target}' not found via ID. Please check the screen content again.\n\n[SCREEN CONTENT]\n{simulator.get_visible_text()}"
@@ -107,8 +100,6 @@ class ExecutionEngine:
             
             # 3. Check Success / Goal
             if action.action == "done":
-                # In simulator, we might check if all inputs map to task.input_data?
-                # For now, trust the agent's done signal + basic validation
                 success = True
                 print("Goal Achieved!")
                 if step_callback:
@@ -141,7 +132,7 @@ class ExecutionEngine:
         return LedgerRecord(
             task_id=task.task_id,
             baseline_id=baseline_id,
-            executed_at=datetime.utcnow().isoformat(),
+            executed_at=datetime.now(tz=timezone.utc).isoformat(),
             metrics=metrics,
             success=success,
             failure_reason=failure_reason

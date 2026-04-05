@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-from typing import Dict, Any, Optional
+from typing import Dict, Optional
 
 class SimpleWebSimulator:
     def __init__(self, initial_html: str):
@@ -8,36 +8,10 @@ class SimpleWebSimulator:
         self.state_changes: Dict[str, str] = {} # Map input_id -> value
 
     def get_visible_text(self) -> str:
-        """
-        Returns a simplified text representation of the screen for the LLM.
-        Focuses on interactive elements.
-        """
-        lines = []
+        """Returns a simplified text representation of the screen for the LLM."""
         body = self.soup.body
         if not body:
             return "Empty page"
-
-        # Naive traversal to find inputs, buttons, and text
-        for element in body.descendants:
-            if element.name == 'label':
-                lines.append(f"Label: {element.get_text(strip=True)}")
-            elif element.name == 'input':
-                etype = element.get('type', 'text')
-                eid = element.get('id', 'unknown')
-                eplaceholder = element.get('placeholder', '')
-                current_val = self.state_changes.get(eid, element.get('value', ''))
-                lines.append(f"[Input: {eid}] (Type: {etype}, Value: '{current_val}', Placeholder: '{eplaceholder}')")
-            elif element.name == 'button':
-                eid = element.get('id', 'unknown')
-                etext = element.get_text(strip=True)
-                lines.append(f"[Button: {eid}] '{etext}'")
-            elif element.name in ['h1', 'h2', 'h3', 'p', 'div'] and element.string:
-                text = element.string.strip()
-                if text:
-                    lines.append(line for line in [text] if line)
-        
-        # Clean up dupes or empty
-        # A Better approach: Custom recursor
         return self._render_dom(body)
 
     def _render_dom(self, node, depth=0) -> str:

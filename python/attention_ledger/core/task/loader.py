@@ -1,5 +1,5 @@
 import yaml
-from typing import List, Optional
+from typing import List
 from pathlib import Path
 from .model import TaskScenario
 

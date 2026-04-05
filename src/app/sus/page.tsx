@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { fetchRuns, submitSus } from '@/lib/api';
-import { CheckCircle, AlertOctagon, HelpCircle } from 'lucide-react';
+// Icons available if needed in future
 
 const SUS_QUESTIONS = [
     "I think that I would like to use this system frequently.",
@@ -19,8 +19,8 @@ const SUS_QUESTIONS = [
 ];
 
 export default function SusPage() {
-    const [history, setHistory] = useState<any[]>([]);
-    const [selectedRun, setSelectedRun] = useState<any>(null);
+    const [history, setHistory] = useState<{ id: number; task_id: string; baseline_id: string; executed_at: string; success: boolean }[]>([]);
+    const [selectedRun, setSelectedRun] = useState<{ id: number; task_id: string; baseline_id: string; executed_at: string; success: boolean } | null>(null);
     const [responses, setResponses] = useState<number[]>(new Array(10).fill(3)); // Default 3 (Neutral)
     const [submitting, setSubmitting] = useState(false);
     const [resultScore, setResultScore] = useState<number | null>(null);
@@ -47,9 +47,9 @@ export default function SusPage() {
         if (!selectedRun) return;
         setSubmitting(true);
         try {
-            const res = await submitSus(selectedRun.task_id, selectedRun.baseline_id, responses);
-            setResultScore(res.sus_score);
-            alert(`SUS Submitted! Score: ${res.sus_score}`);
+            const res = await submitSus(selectedRun.id, responses);
+            const score = res.sus_inspired_score ?? res.sus_score;
+            setResultScore(score);
         } catch (e) {
             console.error(e);
             alert("Failed to submit SUS score.");
