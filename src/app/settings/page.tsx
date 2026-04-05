@@ -30,10 +30,10 @@ export default function SettingsPage() {
         setSaving(true);
         try {
             await updateConfig(config);
-            alert('Settings saved successfully!');
+            alert('設定を保存しました');
         } catch (e) {
             console.error(e);
-            alert('Failed to save settings.');
+            alert('設定の保存に失敗しました');
         } finally {
             setSaving(false);
         }
@@ -47,8 +47,8 @@ export default function SettingsPage() {
                         <Settings size={32} />
                     </div>
                     <div>
-                        <h2 className="text-3xl font-bold text-white">System Settings</h2>
-                        <p className="text-text-muted mt-1">Configure local LLM connection and agent behavior parameters.</p>
+                        <h2 className="text-3xl font-bold text-white">システム設定</h2>
+                        <p className="text-text-muted mt-1">ローカルLLM接続とエージェント動作パラメータの設定</p>
                     </div>
                 </header>
 
@@ -57,12 +57,12 @@ export default function SettingsPage() {
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 text-lg font-semibold text-white border-b border-white/10 pb-2">
                             <Server size={20} className="text-secondary" />
-                            <h3>LLM Connection</h3>
+                            <h3>LLM 接続</h3>
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="md:col-span-2 space-y-2">
-                                <label className="text-sm font-medium text-text-muted">Ollama Base URL</label>
+                                <label className="text-sm font-medium text-text-muted">Ollama ベース URL</label>
                                 <input 
                                     type="text" 
                                     value={config.ollama_url}
@@ -70,11 +70,11 @@ export default function SettingsPage() {
                                     className="w-full bg-surface-highlight border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
                                     placeholder="http://localhost:11434"
                                 />
-                                <p className="text-xs text-text-muted/60">The endpoint where your local Ollama instance is running.</p>
+                                <p className="text-xs text-text-muted/60">ローカルの Ollama インスタンスのエンドポイント</p>
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-text-muted">Model Name</label>
+                                <label className="text-sm font-medium text-text-muted">モデル名</label>
                                 <input 
                                     type="text" 
                                     value={config.model_name}
@@ -90,7 +90,7 @@ export default function SettingsPage() {
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 text-lg font-semibold text-white border-b border-white/10 pb-2">
                             <Cpu size={20} className="text-primary" />
-                            <h3>Agent Parameters</h3>
+                            <h3>エージェントパラメータ</h3>
                         </div>
 
                         <div className="space-y-6">
@@ -108,7 +108,7 @@ export default function SettingsPage() {
                                     onChange={e => setConfig({...config, temperature: parseFloat(e.target.value)})}
                                     className="w-full h-2 bg-surface-highlight rounded-lg appearance-none cursor-pointer accent-primary"
                                 />
-                                <p className="text-xs text-text-muted/60">Controls randomness: 0 is deterministic, 1 is creative.</p>
+                                <p className="text-xs text-text-muted/60">ランダム性の制御: 0 = 決定的、1 = 創造的</p>
                             </div>
                         </div>
                     </div>
@@ -119,7 +119,7 @@ export default function SettingsPage() {
                             onClick={loadConfig}
                             className="px-6 py-3 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-text-muted flex items-center gap-2"
                         >
-                            <RefreshCw size={18} /> Reset
+                            <RefreshCw size={18} /> リセット
                         </button>
                          <button 
                             onClick={handleSave}
@@ -127,7 +127,7 @@ export default function SettingsPage() {
                             className="btn-primary px-8 py-3 flex items-center gap-2 shadow-lg shadow-primary/20"
                         >
                             <Save size={18} />
-                            {saving ? 'Saving...' : 'Save Configuration'}
+                            {saving ? '保存中...' : '設定を保存'}
                         </button>
                     </div>
                 </div>

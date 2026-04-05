@@ -25,10 +25,10 @@ interface HistoryItem {
 
 const CHART_METRIC_KEYS = ['total_tokens', 'input_tokens', 'output_tokens', 'step_count', 'retry_count'];
 const TREND_METRIC_OPTIONS = [
-  { key: 'total_tokens', label: 'Total Tokens' },
-  { key: 'step_count', label: 'Steps' },
-  { key: 'retry_count', label: 'Retries' },
-  { key: 'sus_inspired_score', label: 'SUS Score' },
+  { key: 'total_tokens', label: '総トークン数' },
+  { key: 'step_count', label: 'ステップ数' },
+  { key: 'retry_count', label: 'リトライ数' },
+  { key: 'sus_inspired_score', label: 'SUS スコア' },
 ];
 
 type ActiveSection = 'table' | 'compare' | 'trends';
@@ -143,9 +143,9 @@ export default function LedgerPage() {
       <header className="mb-8 flex justify-between items-end">
         <div>
           <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">
-            Execution Ledger
+            実行台帳
           </h2>
-          <p className="text-text-muted mt-2">Audit trail of all agent execution runs and cost metrics.</p>
+          <p className="text-text-muted mt-2">エージェント実行の監査証跡とコストメトリクス</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -155,10 +155,10 @@ export default function LedgerPage() {
             title="Export all records as CSV"
           >
             <Download size={15} />
-            Export All CSV
+            全件CSV出力
           </button>
           <button type="button" onClick={reload} className="btn-ghost text-sm">
-            Refresh
+            更新
           </button>
         </div>
       </header>
@@ -167,9 +167,9 @@ export default function LedgerPage() {
       <div className="flex gap-1 mb-6 bg-surface rounded-xl p-1 w-fit border border-white/5">
         {(
           [
-            { key: 'table', icon: <FileJson size={15} />, label: 'Ledger' },
-            { key: 'compare', icon: <BarChart2 size={15} />, label: 'Compare' },
-            { key: 'trends', icon: <TrendingUp size={15} />, label: 'Trends' },
+            { key: 'table', icon: <FileJson size={15} />, label: '台帳' },
+            { key: 'compare', icon: <BarChart2 size={15} />, label: '比較' },
+            { key: 'trends', icon: <TrendingUp size={15} />, label: 'トレンド' },
           ] as { key: ActiveSection; icon: React.ReactNode; label: string }[]
         ).map(tab => (
           <button
@@ -196,19 +196,19 @@ export default function LedgerPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-white/5 bg-surface-highlight/30 text-xs uppercase tracking-wider text-text-muted">
-                  <th className="p-4 font-semibold">Status</th>
-                  <th className="p-4 font-semibold">Task ID</th>
-                  <th className="p-4 font-semibold">Baseline</th>
-                  <th className="p-4 font-semibold">Cost (Tokens)</th>
+                  <th className="p-4 font-semibold">状態</th>
+                  <th className="p-4 font-semibold">タスクID</th>
+                  <th className="p-4 font-semibold">ベースライン</th>
+                  <th className="p-4 font-semibold">コスト (トークン)</th>
                   <th className="p-4 font-semibold">SUS</th>
-                  <th className="p-4 font-semibold">Executed At</th>
-                  <th className="p-4 font-semibold">Details</th>
+                  <th className="p-4 font-semibold">実行日時</th>
+                  <th className="p-4 font-semibold">詳細</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 text-sm">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-text-muted">Loading ledger...</td>
+                    <td colSpan={7} className="p-8 text-center text-text-muted">台帳を読み込み中...</td>
                   </tr>
                 ) : history.length === 0 ? (
                   <tr>
@@ -276,10 +276,10 @@ export default function LedgerPage() {
         <div className="space-y-6">
           {/* Baseline selectors */}
           <div className="glass-panel p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Compare Baselines</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">ベースライン比較</h3>
             <div className="flex flex-wrap gap-6 items-end">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-text-muted uppercase tracking-wider">Baseline A (blue)</label>
+                <label className="text-xs text-text-muted uppercase tracking-wider">ベースライン A (青)</label>
                 <select
                   value={baselineAId}
                   onChange={e => setBaselineAId(e.target.value)}
@@ -293,7 +293,7 @@ export default function LedgerPage() {
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-text-muted uppercase tracking-wider">Baseline B (purple)</label>
+                <label className="text-xs text-text-muted uppercase tracking-wider">ベースライン B (紫)</label>
                 <select
                   value={baselineBId}
                   onChange={e => setBaselineBId(e.target.value)}
@@ -435,7 +435,7 @@ export default function LedgerPage() {
 
           {selectedTaskId ? (
             trendLoading ? (
-              <div className="glass-panel p-12 text-center text-text-muted">Loading trend data...</div>
+              <div className="glass-panel p-12 text-center text-text-muted">トレンドデータを読み込み中...</div>
             ) : trendRuns.length === 0 ? (
               <div className="glass-panel p-12 text-center text-text-muted">No runs found for this task.</div>
             ) : (

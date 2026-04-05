@@ -52,7 +52,7 @@ export default function SusPage() {
             setResultScore(score);
         } catch (e) {
             console.error(e);
-            alert("Failed to submit SUS score.");
+            alert("SUSスコアの送信に失敗しました");
         } finally {
             setSubmitting(false);
         }
@@ -63,21 +63,21 @@ export default function SusPage() {
             <div className="max-w-4xl mx-auto">
                 <header className="mb-8">
                     <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">
-                        System Usability Scale (SUS)
+                        システムユーザビリティ評価 (SUS)
                     </h2>
                     <p className="text-text-muted mt-2">
-                        Collect subjective usability feedback for specific agent execution runs.
+                        特定のエージェント実行に対する主観的ユーザビリティ評価を収集
                     </p>
                 </header>
 
                 <div className="glass-panel p-6 mb-8">
-                    <h3 className="text-lg font-semibold mb-4 text-white">1. Select Execution Run</h3>
+                    <h3 className="text-lg font-semibold mb-4 text-white">1. 実行結果を選択</h3>
                     <select 
                         className="w-full bg-surface-highlight border border-white/10 rounded px-4 py-3 text-white focus:outline-none focus:border-primary"
                         onChange={handleRunSelect}
                         defaultValue=""
                     >
-                        <option value="" disabled>-- Choose a recent task run --</option>
+                        <option value="" disabled>-- 最近の実行を選択 --</option>
                         {history.map(run => (
                             <option key={run.id} value={run.id}>
                                 {new Date(run.executed_at).toLocaleString()} - {run.task_id} ({run.success ? 'Success' : 'Failed'})
@@ -89,7 +89,7 @@ export default function SusPage() {
                 {selectedRun && (
                     <div className="glass-panel p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-semibold text-white">2. Survey Questions</h3>
+                            <h3 className="text-lg font-semibold text-white">2. 評価項目</h3>
                             {resultScore !== null && (
                                 <div className="bg-primary/20 text-primary px-4 py-2 rounded-lg border border-primary/30 font-bold">
                                     Score: {resultScore} / 100
@@ -102,7 +102,7 @@ export default function SusPage() {
                                 <div key={idx} className="pb-4 border-b border-white/5 last:border-0">
                                     <p className="mb-3 text-sm md:text-base">{idx + 1}. {q}</p>
                                     <div className="flex justify-between items-center gap-2 max-w-xl">
-                                        <span className="text-xs text-text-muted">Strongly Disagree</span>
+                                        <span className="text-xs text-text-muted">強く反対</span>
                                         <div className="flex gap-2 bg-surface-highlight/30 p-1 rounded-full">
                                             {[1, 2, 3, 4, 5].map(val => (
                                                 <button
@@ -118,7 +118,7 @@ export default function SusPage() {
                                                 </button>
                                             ))}
                                         </div>
-                                        <span className="text-xs text-text-muted">Strongly Agree</span>
+                                        <span className="text-xs text-text-muted">強く賛成</span>
                                     </div>
                                 </div>
                             ))}
@@ -130,7 +130,7 @@ export default function SusPage() {
                                 disabled={submitting}
                                 className="btn-primary px-8 py-3 flex items-center gap-2"
                             >
-                                {submitting ? 'Submitting...' : 'Submit Evaluation'}
+                                {submitting ? '送信中...' : '評価を送信'}
                             </button>
                         </div>
                     </div>

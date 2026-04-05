@@ -79,7 +79,7 @@ export default function TasksPage() {
       setNewBaselineId('');
       setShowBaselineForm(false);
     } catch {
-      alert('Failed to create baseline');
+      alert('ベースラインの作成に失敗しました');
     }
   };
 
@@ -130,12 +130,12 @@ export default function TasksPage() {
             stopPolling();
             setRunning(null);
             setFinished(true);
-            setLogs(prev => [...prev, { type: 'error', message: 'Lost connection to server', timestamp: new Date().toISOString() }]);
+            setLogs(prev => [...prev, { type: 'error', message: 'サーバーとの接続が切れました', timestamp: new Date().toISOString() }]);
           }
         }
       }, 1000);
     } catch {
-      alert('Failed to start task');
+      alert('タスクの開始に失敗しました');
       setRunning(null);
     }
   }, [selectedBaseline, mockMode, stopPolling]);
@@ -145,9 +145,9 @@ export default function TasksPage() {
       <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">
-            Task Library
+            タスクライブラリ
           </h2>
-          <p className="text-text-muted mt-2">Manage and execute evaluation task scenarios.</p>
+          <p className="text-text-muted mt-2">評価タスクシナリオの管理と実行</p>
         </div>
 
         <div className="flex items-center gap-4">
@@ -160,7 +160,7 @@ export default function TasksPage() {
               title="Select baseline"
               className="bg-transparent text-sm text-white focus:outline-none cursor-pointer"
             >
-              {baselines.length === 0 && <option value="">No baselines</option>}
+              {baselines.length === 0 && <option value="">ベースラインなし</option>}
               {baselines.map(bl => (
                 <option key={bl.baseline_id} value={bl.baseline_id}>
                   {bl.baseline_id}
@@ -169,7 +169,7 @@ export default function TasksPage() {
             </select>
             <button
               type="button"
-              title="Create new baseline"
+              title="新規ベースライン作成"
               onClick={() => setShowBaselineForm(true)}
               className="text-text-muted hover:text-white transition-colors"
             >
@@ -179,16 +179,16 @@ export default function TasksPage() {
 
           {/* Mock Toggle */}
           <div className="flex items-center gap-3 bg-surface-highlight/50 p-2 px-3 rounded-lg border border-white/5">
-            <span className={`text-sm font-medium ${!mockMode ? 'text-white' : 'text-text-muted'}`}>Real</span>
+            <span className={`text-sm font-medium ${!mockMode ? 'text-white' : 'text-text-muted'}`}>実LLM</span>
             <button
               type="button"
-              title={mockMode ? 'Switch to real LLM' : 'Switch to mock mode'}
+              title={mockMode ? '実LLMに切替' : 'モックに切替'}
               onClick={() => setMockMode(!mockMode)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${mockMode ? 'bg-primary' : 'bg-white/20'}`}
             >
               <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${mockMode ? 'translate-x-6' : 'translate-x-1'}`} />
             </button>
-            <span className={`text-sm font-medium ${mockMode ? 'text-white' : 'text-text-muted'}`}>Mock</span>
+            <span className={`text-sm font-medium ${mockMode ? 'text-white' : 'text-text-muted'}`}>モック</span>
           </div>
         </div>
       </header>
@@ -204,9 +204,9 @@ export default function TasksPage() {
             className="bg-surface-highlight border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary flex-1 max-w-xs"
           />
           <button type="button" onClick={handleCreateBaseline} className="btn-primary text-sm px-4 py-2">
-            Create
+            作成
           </button>
-          <button type="button" onClick={() => setShowBaselineForm(false)} className="text-text-muted hover:text-white" title="Cancel">
+          <button type="button" onClick={() => setShowBaselineForm(false)} className="text-text-muted hover:text-white" title="キャンセル">
             <X size={18} />
           </button>
         </div>
@@ -219,18 +219,18 @@ export default function TasksPage() {
             <div className="flex justify-between items-center p-4 border-b border-white/10 bg-surface-highlight/30">
               <div className="flex items-center gap-2 font-mono text-sm">
                 <Terminal size={16} className="text-primary" />
-                <span>Agent Execution Logs</span>
+                <span>エージェント実行ログ</span>
                 {running && <Loader2 size={14} className="animate-spin text-text-muted" />}
-                {finished && <span className="text-success text-xs ml-2">Done</span>}
+                {finished && <span className="text-success text-xs ml-2">完了</span>}
               </div>
-              <button type="button" onClick={handleCloseModal} className="text-text-muted hover:text-white" title="Close logs">
+              <button type="button" onClick={handleCloseModal} className="text-text-muted hover:text-white" title="ログを閉じる">
                 <X size={20} />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0d1117] font-mono text-xs md:text-sm">
               {logs.length === 0 && (
-                <div className="text-text-muted italic">Waiting for agent to initialize...</div>
+                <div className="text-text-muted italic">エージェントの初期化を待っています...</div>
               )}
               {logs.map((log, idx) => (
                 <div key={idx} className={`p-2 rounded border-l-2 ${
@@ -252,7 +252,7 @@ export default function TasksPage() {
                     </div>
                   ) : log.type === 'complete' ? (
                     <div className="text-success font-bold">
-                      Execution {log.success ? 'completed successfully' : 'finished with failure'}
+                      {log.success ? '実行が正常に完了しました' : '実行が失敗で終了しました'}
                     </div>
                   ) : log.type === 'error' ? (
                     <div className="text-error font-bold">{log.message}</div>
@@ -288,11 +288,11 @@ export default function TasksPage() {
 
               <div className="flex-1 space-y-3 mt-4">
                 <div className="text-sm text-text-muted">
-                  <span className="block text-xs uppercase tracking-wider opacity-50 mb-1">Start Condition</span>
+                  <span className="block text-xs uppercase tracking-wider opacity-50 mb-1">開始条件</span>
                   {task.start_condition}
                 </div>
                 <div className="text-sm text-text-muted">
-                  <span className="block text-xs uppercase tracking-wider opacity-50 mb-1">Goal</span>
+                  <span className="block text-xs uppercase tracking-wider opacity-50 mb-1">ゴール</span>
                   {task.goal_condition}
                 </div>
               </div>
@@ -309,7 +309,7 @@ export default function TasksPage() {
                   ) : (
                     <Play size={16} className="fill-current" />
                   )}
-                  {running === task.task_id ? 'Running...' : 'Run Analysis'}
+                  {running === task.task_id ? '実行中...' : '分析実行'}
                 </button>
               </div>
             </div>
@@ -320,8 +320,8 @@ export default function TasksPage() {
             <div className="w-12 h-12 rounded-full bg-surface-highlight flex items-center justify-center mb-4">
               <span className="text-2xl">+</span>
             </div>
-            <p className="font-medium">Define New Task</p>
-            <p className="text-xs opacity-50 mt-2 text-center">Create a YAML definition<br/>to add a new scenario.</p>
+            <p className="font-medium">新規タスク定義</p>
+            <p className="text-xs opacity-50 mt-2 text-center">YAML定義を作成して<br/>シナリオを追加</p>
           </div>
         </div>
       )}

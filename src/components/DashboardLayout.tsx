@@ -25,11 +25,11 @@ export default function DashboardLayout({
         </div>
         
         <nav className="space-y-1 flex-1">
-          <NavItem href="/" icon={<LayoutDashboard size={20} />} label="Overview" />
-          <NavItem href="/tasks" icon={<Play size={20} />} label="Tasks" />
-          <NavItem href="/sus" icon={<ListChecks size={20} />} label="SUS Survey" />
-          <NavItem href="/ledger" icon={<History size={20} />} label="Ledger" />
-          <NavItem href="/settings" icon={<Settings size={20} />} label="Settings" />
+          <NavItem href="/" icon={<LayoutDashboard size={20} />} label="概要" />
+          <NavItem href="/tasks" icon={<Play size={20} />} label="タスク" />
+          <NavItem href="/sus" icon={<ListChecks size={20} />} label="SUS 評価" />
+          <NavItem href="/ledger" icon={<History size={20} />} label="実行台帳" />
+          <NavItem href="/settings" icon={<Settings size={20} />} label="設定" />
         </nav>
 
         <div className="text-xs text-text-muted text-center mt-4">

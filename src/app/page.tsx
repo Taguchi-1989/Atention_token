@@ -49,7 +49,6 @@ export default function Home() {
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto space-y-8">
-        {/* Header Section */}
         <header className="relative py-12 px-6 rounded-3xl overflow-hidden bg-gradient-to-r from-surface-highlight to-surface border border-white/5 shadow-2xl">
            <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
                 <Zap size={300} strokeWidth={1} />
@@ -61,7 +60,7 @@ export default function Home() {
                       <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${apiOk === false ? 'bg-error' : 'bg-primary'}`}></span>
                       <span className={`relative inline-flex rounded-full h-2 w-2 ${apiOk === false ? 'bg-error' : 'bg-primary'}`}></span>
                     </span>
-                    {apiOk === false ? 'API Offline' : apiOk === true ? 'System Operational' : 'Connecting...'}
+                    {apiOk === false ? 'API オフライン' : apiOk === true ? 'システム稼働中' : '接続中...'}
                 </div>
 
                 <h2 className="text-5xl md:text-6xl font-bold mb-6 tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-white via-blue-100 to-white/40">
@@ -69,78 +68,75 @@ export default function Home() {
                 </h2>
 
                 <p className="text-text-muted text-lg md:text-xl max-w-2xl leading-relaxed">
-                    Quantify software cognitive load using autonomous AI agents.
-                    <br className="hidden md:block"/>Measure attention cost in tokens, optimize for human efficiency.
+                    AIエージェントを使って、ソフトウェアの認知負荷を定量化。
+                    <br className="hidden md:block"/>トークン消費量で注意力コストを測定し、人間の効率を最適化します。
                 </p>
 
                 <div className="flex flex-wrap gap-4 mt-8">
                     <Link href="/tasks" className="btn-primary flex items-center gap-2 px-6 py-3 text-sm md:text-base group">
-                        Deploy Agent
+                        タスク実行
                         <ArrowUpRight size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                     </Link>
                     <Link href="/ledger" className="px-6 py-3 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-white font-medium text-sm md:text-base">
-                        View Audit Log
+                        実行履歴を見る
                     </Link>
                 </div>
            </div>
         </header>
 
-        {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             icon={<Layers size={20} className="text-primary" />}
-            label="Task Scenarios"
+            label="タスクシナリオ"
             value={String(taskCount)}
-            sub="YAML Definitions"
+            sub="YAML 定義数"
           />
           <StatCard
             icon={<Zap size={20} className="text-yellow-400" />}
-            label="Total Executions"
+            label="総実行回数"
             value={stats ? String(stats.total_runs) : '-'}
-            sub={`${successRate}% success rate`}
+            sub={`成功率 ${successRate}%`}
           />
           <StatCard
             icon={<Users size={20} className="text-secondary" />}
-            label="Baselines"
+            label="ベースライン"
             value={stats ? String(stats.total_baselines) : '-'}
-            sub="Registered"
+            sub="登録済み"
           />
           <StatCard
             icon={<Clock size={20} className="text-success" />}
-            label="Total Tokens"
+            label="総トークン数"
             value={stats ? stats.total_tokens.toLocaleString() : '-'}
-            sub="Attention Cost"
+            sub="注意力コスト"
           />
         </div>
 
-        {/* Dashboards Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Recent Activity */}
             <div className="lg:col-span-2 glass-panel p-6">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-xl font-semibold flex items-center gap-2">
                         <Activity size={20} className="text-primary" />
-                        Recent Activity
+                        最近のアクティビティ
                     </h3>
                     <div className="flex items-center gap-3">
-                        <button type="button" onClick={loadData} title="Refresh data" className="text-text-muted hover:text-white transition-colors">
+                        <button type="button" onClick={loadData} title="データを更新" className="text-text-muted hover:text-white transition-colors">
                             <RefreshCw size={16} />
                         </button>
-                        <Link href="/ledger" className="text-xs text-primary hover:underline">View All</Link>
+                        <Link href="/ledger" className="text-xs text-primary hover:underline">すべて見る</Link>
                     </div>
                 </div>
 
                 <div className="space-y-4">
                     {recentRuns.length === 0 ? (
                         <div className="text-center py-8 text-text-muted">
-                            No executions yet. <Link href="/tasks" className="text-primary hover:underline">Run a task</Link> to get started.
+                            まだ実行履歴がありません。<Link href="/tasks" className="text-primary hover:underline">タスクを実行</Link>して始めましょう。
                         </div>
                     ) : (
                         recentRuns.map(run => (
                             <ActivityItem
                                 key={run.id}
                                 task={run.task_id}
-                                status={run.success ? 'Success' : 'Failed'}
+                                status={run.success ? '成功' : '失敗'}
                                 time={formatRelativeTime(run.executed_at)}
                                 tokens={(run.total_tokens ?? 0).toLocaleString()}
                                 failed={!run.success}
@@ -150,19 +146,18 @@ export default function Home() {
                 </div>
             </div>
 
-            {/* Quick Links */}
             <div className="glass-panel p-6 flex flex-col justify-between relative overflow-hidden group">
                  <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
                  <div>
-                    <h3 className="text-lg font-semibold mb-2">Quick Access</h3>
-                    <p className="text-sm text-text-muted mb-6">Navigate to key areas of the system.</p>
+                    <h3 className="text-lg font-semibold mb-2">クイックアクセス</h3>
+                    <p className="text-sm text-text-muted mb-6">主要な機能へすぐにアクセス</p>
 
                     <div className="space-y-2">
-                        <QuickLink href="/tasks" label="Run Task Analysis" desc="Execute agent on a scenario" />
-                        <QuickLink href="/sus" label="SUS Survey" desc="Submit usability evaluation" />
-                        <QuickLink href="/ledger" label="Execution Ledger" desc="Review audit trail" />
-                        <QuickLink href="/settings" label="Settings" desc="Configure LLM connection" />
+                        <QuickLink href="/tasks" label="タスク実行" desc="エージェントでシナリオを実行" />
+                        <QuickLink href="/sus" label="SUS 評価" desc="ユーザビリティ評価を送信" />
+                        <QuickLink href="/ledger" label="実行台帳" desc="実行履歴と監査ログ" />
+                        <QuickLink href="/settings" label="設定" desc="LLM 接続の設定" />
                     </div>
                  </div>
             </div>
@@ -220,13 +215,13 @@ function QuickLink({ href, label, desc }: { href: string; label: string; desc: s
 
 function formatRelativeTime(isoStr: string): string {
     const then = new Date(isoStr).getTime();
-    if (isNaN(then)) return 'Unknown';
+    if (isNaN(then)) return '不明';
     const diffMs = Date.now() - then;
     const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return 'Just now';
-    if (mins < 60) return `${mins} min ago`;
+    if (mins < 1) return 'たった今';
+    if (mins < 60) return `${mins}分前`;
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 24) return `${hours}時間前`;
     const days = Math.floor(hours / 24);
-    return `${days}d ago`;
+    return `${days}日前`;
 }
