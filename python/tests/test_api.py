@@ -24,14 +24,14 @@ def cleanup_db():
 
 class TestHealth:
     def test_health(self):
-        res = client.get("/health")
+        res = client.get("/api/health")
         assert res.status_code == 200
         assert res.json()["status"] == "ok"
 
 
 class TestTasks:
     def test_list_tasks(self):
-        res = client.get("/tasks")
+        res = client.get("/api/tasks")
         assert res.status_code == 200
         data = res.json()
         assert isinstance(data, list)
@@ -42,20 +42,20 @@ class TestTasks:
 
     def test_run_task_not_found(self):
         res = client.post(
-            "/tasks/nonexistent_task/run",
+            "/api/tasks/nonexistent_task/run",
             json={"baseline_id": "BL-TEST", "mock": True},
         )
         assert res.status_code == 404
 
     def test_task_status_empty(self):
-        res = client.get("/tasks/some_task/status")
+        res = client.get("/api/tasks/some_task/status")
         assert res.status_code == 200
         assert res.json()["logs"] == []
 
 
 class TestBaselines:
     def test_create_baseline(self):
-        res = client.post("/baselines", json={
+        res = client.post("/api/baselines", json={
             "baseline_id": "BL-TEST-API",
             "model": "test-model",
             "engine": "mock",
@@ -67,7 +67,7 @@ class TestBaselines:
         assert data["model"] == "test-model"
 
     def test_list_baselines(self):
-        res = client.get("/baselines")
+        res = client.get("/api/baselines")
         assert res.status_code == 200
         data = res.json()
         assert isinstance(data, list)
@@ -76,30 +76,30 @@ class TestBaselines:
         assert "BL-TEST-API" in ids
 
     def test_delete_baseline(self):
-        res = client.delete("/baselines/BL-TEST-API")
+        res = client.delete("/api/baselines/BL-TEST-API")
         assert res.status_code == 200
         assert res.json()["status"] == "deleted"
 
     def test_delete_baseline_not_found(self):
-        res = client.delete("/baselines/NONEXISTENT")
+        res = client.delete("/api/baselines/NONEXISTENT")
         assert res.status_code == 404
 
 
 class TestRuns:
     def test_list_runs_empty(self):
-        res = client.get("/runs")
+        res = client.get("/api/runs")
         assert res.status_code == 200
         assert isinstance(res.json(), list)
 
     def test_history_alias(self):
-        res = client.get("/history")
+        res = client.get("/api/history")
         assert res.status_code == 200
         assert isinstance(res.json(), list)
 
 
 class TestStats:
     def test_get_stats(self):
-        res = client.get("/stats")
+        res = client.get("/api/stats")
         assert res.status_code == 200
         data = res.json()
         assert "total_runs" in data
@@ -111,7 +111,7 @@ class TestStats:
 
 class TestConfig:
     def test_get_config(self):
-        res = client.get("/config")
+        res = client.get("/api/config")
         assert res.status_code == 200
         data = res.json()
         assert "ollama_url" in data
@@ -119,7 +119,7 @@ class TestConfig:
         assert "temperature" in data
 
     def test_update_config(self):
-        res = client.put("/config", json={
+        res = client.put("/api/config", json={
             "ollama_url": "http://localhost:11434",
             "model_name": "test-model",
             "temperature": 0.5,
@@ -128,13 +128,13 @@ class TestConfig:
         assert res.json()["config"]["model_name"] == "test-model"
 
         # Verify it persisted
-        res2 = client.get("/config")
+        res2 = client.get("/api/config")
         assert res2.json()["model_name"] == "test-model"
 
 
 class TestMetricsDiff:
     def test_diff_missing_data(self):
-        res = client.get("/metrics/diff", params={
+        res = client.get("/api/metrics/diff", params={
             "task_id": "nonexistent",
             "baseline_a": "A",
             "baseline_b": "B",
@@ -144,14 +144,14 @@ class TestMetricsDiff:
 
 class TestSus:
     def test_submit_sus_invalid_responses(self):
-        res = client.post("/sus", json={
+        res = client.post("/api/sus", json={
             "run_id": 1,
             "responses": [1, 2],  # Too few
         })
         assert res.status_code == 400
 
     def test_submit_sus_run_not_found(self):
-        res = client.post("/sus", json={
+        res = client.post("/api/sus", json={
             "run_id": 99999,
             "responses": [4, 2, 4, 2, 4, 2, 4, 2, 4, 2],
         })
@@ -159,7 +159,7 @@ class TestSus:
 
     def test_submit_sus_missing_run_id(self):
         """Verify old task_id/baseline_id format is rejected."""
-        res = client.post("/sus", json={
+        res = client.post("/api/sus", json={
             "task_id": "test",
             "baseline_id": "BL-X",
             "responses": [4, 2, 4, 2, 4, 2, 4, 2, 4, 2],

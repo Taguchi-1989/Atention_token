@@ -1,5 +1,6 @@
+// All API endpoints are under /api prefix
 // Same origin when served by FastAPI; override with env var for separate deployment
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
 
 // ── Tasks ──
 

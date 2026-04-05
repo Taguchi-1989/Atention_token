@@ -6,8 +6,8 @@ describe('API Configuration', () => {
     expect(typeof API_BASE_URL).toBe('string');
   });
 
-  it('defaults to empty string (same origin) when env not set', () => {
-    // Same-origin: no prefix needed when served by FastAPI
-    expect(API_BASE_URL).toBe('');
+  it('defaults to /api when env not set', () => {
+    // All API calls go to /api/* prefix
+    expect(API_BASE_URL).toBe('/api');
   });
 });

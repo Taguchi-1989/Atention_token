@@ -10,7 +10,7 @@ import os
 import hashlib
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, Query, HTTPException, BackgroundTasks
+from fastapi import FastAPI, APIRouter, Query, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -29,6 +29,7 @@ from attention_ledger.core.llm.config import settings
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Attention Ledger Local API", version="0.3.0")
+api = APIRouter()
 
 # ── Security Headers ──
 
@@ -213,7 +214,7 @@ def _resolve_task_file(task_id: str) -> Path:
 # Health
 # ═══════════════════════════════════════════
 
-@app.get("/health")
+@api.get("/health")
 def health():
     return {"status": "ok"}
 
@@ -222,7 +223,7 @@ def health():
 # Dashboard Stats
 # ═══════════════════════════════════════════
 
-@app.get("/stats")
+@api.get("/stats")
 def get_stats():
     return _store().get_stats()
 
@@ -231,7 +232,7 @@ def get_stats():
 # Tasks
 # ═══════════════════════════════════════════
 
-@app.get("/tasks", response_model=List[TaskSummary])
+@api.get("/tasks", response_model=List[TaskSummary])
 def list_tasks():
     tasks = TaskLoader.load_all_from_dir(str(_tasks_dir()))
     return [
@@ -243,7 +244,7 @@ def list_tasks():
     ]
 
 
-@app.get("/tasks/{task_id}/preview")
+@api.get("/tasks/{task_id}/preview")
 def preview_task(task_id: str):
     """Serve the HTML file for a task as a preview."""
     _validate_id(task_id, "task_id")
@@ -258,7 +259,7 @@ def preview_task(task_id: str):
 # Task Execution (background)
 # ═══════════════════════════════════════════
 
-@app.post("/tasks/{task_id}/run")
+@api.post("/tasks/{task_id}/run")
 async def run_task(task_id: str, payload: RunRequest, background_tasks: BackgroundTasks):
     task_file = _resolve_task_file(task_id)
     if not task_file.exists():
@@ -315,7 +316,7 @@ async def _run_task_background(task_id: str, baseline_id: str, mock: bool, max_s
         })
 
 
-@app.get("/tasks/{task_id}/status")
+@api.get("/tasks/{task_id}/status")
 def get_task_status(task_id: str):
     _validate_id(task_id, "task_id")
     logs = active_runs.get(task_id, [])
@@ -326,7 +327,7 @@ def get_task_status(task_id: str):
 # Runs (execution history)
 # ═══════════════════════════════════════════
 
-@app.get("/runs", response_model=List[RunSummary])
+@api.get("/runs", response_model=List[RunSummary])
 def list_runs(
     limit: int = Query(50, ge=1, le=500),
     include_metrics: bool = Query(False),
@@ -352,7 +353,7 @@ def list_runs(
     return results
 
 
-@app.get("/history", response_model=List[RunSummary])
+@api.get("/history", response_model=List[RunSummary])
 def list_history(limit: int = Query(10, ge=1, le=100), include_metrics: bool = Query(False)):
     return list_runs(limit=limit, include_metrics=include_metrics)
 
@@ -361,7 +362,7 @@ def list_history(limit: int = Query(10, ge=1, le=100), include_metrics: bool = Q
 # SUS Submission
 # ═══════════════════════════════════════════
 
-@app.post("/sus")
+@api.post("/sus")
 def submit_sus(payload: SusSubmission):
     try:
         score = compute_sus_inspired_score(payload.responses)
@@ -379,7 +380,7 @@ def submit_sus(payload: SusSubmission):
 # Baselines
 # ═══════════════════════════════════════════
 
-@app.get("/baselines", response_model=List[BaselineSummary])
+@api.get("/baselines", response_model=List[BaselineSummary])
 def list_baselines():
     rows = _store().get_all_baselines()
     return [
@@ -391,7 +392,7 @@ def list_baselines():
     ]
 
 
-@app.post("/baselines", response_model=BaselineSummary)
+@api.post("/baselines", response_model=BaselineSummary)
 def create_baseline(payload: BaselineCreateRequest):
     prompt_hash = hashlib.sha256(
         (payload.system_prompt or "default").encode()
@@ -411,7 +412,7 @@ def create_baseline(payload: BaselineCreateRequest):
     )
 
 
-@app.delete("/baselines/{baseline_id}")
+@api.delete("/baselines/{baseline_id}")
 def delete_baseline(baseline_id: str):
     _validate_id(baseline_id, "baseline_id")
     if not _store().delete_baseline(baseline_id):
@@ -423,7 +424,7 @@ def delete_baseline(baseline_id: str):
 # Metrics Diff
 # ═══════════════════════════════════════════
 
-@app.get("/metrics/diff")
+@api.get("/metrics/diff")
 def metrics_diff(
     task_id: str = Query(..., max_length=128, pattern=r'^[a-zA-Z0-9_\-]+$'),
     baseline_a: str = Query(..., max_length=128, pattern=r'^[a-zA-Z0-9_\-]+$'),
@@ -471,7 +472,7 @@ def metrics_diff(
 # Configuration
 # ═══════════════════════════════════════════
 
-@app.get("/config")
+@api.get("/config")
 def get_config():
     return {
         "ollama_url": settings.ollama_url,
@@ -480,7 +481,7 @@ def get_config():
     }
 
 
-@app.put("/config")
+@api.put("/config")
 def update_config(req: ConfigUpdateRequest):
     # SSRF protection: only allow localhost URLs
     parsed = urlparse(req.ollama_url)
@@ -499,7 +500,7 @@ def update_config(req: ConfigUpdateRequest):
 # CSV Export
 # ═══════════════════════════════════════════
 
-@app.get("/export/csv")
+@api.get("/export/csv")
 def export_csv(
     task_id: Optional[str] = Query(None, max_length=128, pattern=r'^[a-zA-Z0-9_\-]+$'),
     baseline_id: Optional[str] = Query(None, max_length=128, pattern=r'^[a-zA-Z0-9_\-]+$'),
@@ -566,7 +567,7 @@ _DEMO_V1_TASKS = ["expense_input_v1", "shopping_cart_v1", "inquiry_form_v1"]
 _DEMO_V2_TASKS = ["expense_input_v2", "shopping_cart_v2", "inquiry_form_v2"]
 
 
-@app.post("/demo/run")
+@api.post("/demo/run")
 async def run_demo():
     store = _store()
 
@@ -609,10 +610,41 @@ async def run_demo():
 
 
 # ═══════════════════════════════════════════
+# Mount API router under /api prefix
+# ═══════════════════════════════════════════
+
+app.include_router(api, prefix="/api")
+
+
+# ═══════════════════════════════════════════
 # Static file serving (Next.js export)
 # Must be LAST — catches all non-API routes
 # ═══════════════════════════════════════════
 
 if _STATIC_DIR.exists():
     from fastapi.staticfiles import StaticFiles
-    app.mount("/", StaticFiles(directory=str(_STATIC_DIR), html=True), name="static")
+    from fastapi.responses import FileResponse
+
+    # Serve static assets (_next/, etc.)
+    app.mount("/_next", StaticFiles(directory=str(_STATIC_DIR / "_next")), name="next-assets")
+
+    # Catch-all: serve Next.js exported HTML pages
+    @app.get("/{path:path}")
+    async def serve_spa(path: str):
+        # Try exact file first (e.g. favicon.ico)
+        exact = _STATIC_DIR / path
+        if exact.is_file():
+            return FileResponse(exact)
+        # Try .html extension (e.g. /tasks → tasks.html)
+        html_file = _STATIC_DIR / f"{path}.html"
+        if html_file.is_file():
+            return FileResponse(html_file)
+        # Try directory index (e.g. / → index.html)
+        index_file = _STATIC_DIR / path / "index.html"
+        if index_file.is_file():
+            return FileResponse(index_file)
+        # Fallback to root index.html (SPA client-side routing)
+        root_index = _STATIC_DIR / "index.html"
+        if root_index.is_file():
+            return FileResponse(root_index)
+        raise HTTPException(status_code=404)
