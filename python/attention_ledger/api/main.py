@@ -90,21 +90,30 @@ def _store() -> LedgerStore:
 
 
 def _make_agent(baseline_id: str, mock: bool) -> FirstTimeUserAgent:
-    """Create an agent with adapter configured from baseline settings."""
-    system_prompt = None  # None → agent uses default SYSTEM_PROMPT_V1
+    """Create an agent with adapter configured from baseline settings.
 
-    if mock:
-        adapter = MockAdapter()
-    else:
-        store = _store()
-        bl = store.get_baseline(baseline_id)
-        if bl:
-            # bl = (baseline_id, model, engine, system_prompt_hash, temperature, created_at, system_prompt)
-            adapter = OllamaAdapter(base_url=settings.ollama_url, model=bl[1], temperature=bl[4])
-            if bl[6]:  # system_prompt column
-                system_prompt = bl[6]
+    Adapter selection priority:
+    1. If baseline exists in DB, use its engine field ("mock" → MockAdapter, "ollama" → OllamaAdapter)
+    2. Otherwise, fall back to the `mock` request parameter
+    """
+    system_prompt = None  # None → agent uses default SYSTEM_PROMPT_V1
+    use_mock = mock  # default from request
+
+    store = _store()
+    bl = store.get_baseline(baseline_id)
+    if bl:
+        # bl = (baseline_id, model, engine, system_prompt_hash, temperature, created_at, system_prompt)
+        bl_engine = bl[2]  # engine field
+        use_mock = bl_engine == "mock"
+        if use_mock:
+            adapter = MockAdapter()
         else:
-            adapter = OllamaAdapter()
+            adapter = OllamaAdapter(base_url=settings.ollama_url, model=bl[1], temperature=bl[4])
+        if bl[6]:  # system_prompt column
+            system_prompt = bl[6]
+    else:
+        # No baseline in DB — use request mock flag + current settings
+        adapter = MockAdapter() if use_mock else OllamaAdapter()
 
     if system_prompt:
         return FirstTimeUserAgent(adapter, system_prompt=system_prompt)
