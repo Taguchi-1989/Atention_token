@@ -25,6 +25,10 @@ export async function fetchTaskStatus(taskId: string) {
   return res.json();
 }
 
+export function getTaskPreviewUrl(taskId: string): string {
+  return `${API_BASE_URL}/tasks/${taskId}/preview`;
+}
+
 // ── Runs ──
 
 export async function fetchRuns(includeMetrics: boolean = false) {
@@ -109,6 +113,14 @@ export async function updateConfig(config: { ollama_url: string; model_name: str
     body: JSON.stringify(config),
   });
   if (!res.ok) throw new Error('Failed to update config');
+  return res.json();
+}
+
+// ── Demo ──
+
+export async function runDemo() {
+  const res = await fetch(`${API_BASE_URL}/demo/run`, { method: 'POST' });
+  if (!res.ok) throw new Error('Demo failed');
   return res.json();
 }
 

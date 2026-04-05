@@ -243,6 +243,17 @@ def list_tasks():
     ]
 
 
+@app.get("/tasks/{task_id}/preview")
+def preview_task(task_id: str):
+    """Serve the HTML file for a task as a preview."""
+    _validate_id(task_id, "task_id")
+    html_file = _tasks_dir() / f"{task_id.lower()}.html"
+    if not html_file.exists():
+        raise HTTPException(status_code=404, detail="Preview not found")
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(content=html_file.read_text(encoding="utf-8"))
+
+
 # ═══════════════════════════════════════════
 # Task Execution (background)
 # ═══════════════════════════════════════════
@@ -543,6 +554,58 @@ def export_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ═══════════════════════════════════════════
+# One-Click Demo
+# ═══════════════════════════════════════════
+
+_DEMO_BEFORE = "BL-DEMO-BEFORE"
+_DEMO_AFTER = "BL-DEMO-AFTER"
+_DEMO_V1_TASKS = ["expense_input_v1", "shopping_cart_v1", "inquiry_form_v1"]
+_DEMO_V2_TASKS = ["expense_input_v2", "shopping_cart_v2", "inquiry_form_v2"]
+
+
+@app.post("/demo/run")
+async def run_demo():
+    store = _store()
+
+    # Idempotency: check if demo data already exists
+    existing = store.get_records_by_task_and_baseline(_DEMO_V1_TASKS[0].upper(), _DEMO_BEFORE)
+    if existing:
+        return {"status": "existing", "message": "デモデータが既に存在します"}
+
+    results = []
+
+    # Run v1 tasks with BL-DEMO-BEFORE
+    for task_id in _DEMO_V1_TASKS:
+        task_file = _tasks_dir() / f"{task_id}.yaml"
+        if not task_file.exists():
+            continue
+        task = TaskLoader.load_from_file(str(task_file))
+        adapter = MockAdapter()
+        agent = FirstTimeUserAgent(adapter)
+        engine = ExecutionEngine(agent)
+        result = await engine.run_task(task, _DEMO_BEFORE, max_steps=20)
+        store.save_record(result)
+        results.append({"task_id": result.task_id, "baseline_id": _DEMO_BEFORE,
+                        "total_tokens": result.metrics.total_tokens, "success": result.success})
+
+    # Run v2 tasks with BL-DEMO-AFTER
+    for task_id in _DEMO_V2_TASKS:
+        task_file = _tasks_dir() / f"{task_id}.yaml"
+        if not task_file.exists():
+            continue
+        task = TaskLoader.load_from_file(str(task_file))
+        adapter = MockAdapter()
+        agent = FirstTimeUserAgent(adapter)
+        engine = ExecutionEngine(agent)
+        result = await engine.run_task(task, _DEMO_AFTER, max_steps=20)
+        store.save_record(result)
+        results.append({"task_id": result.task_id, "baseline_id": _DEMO_AFTER,
+                        "total_tokens": result.metrics.total_tokens, "success": result.success})
+
+    return {"status": "completed", "message": "デモ実行が完了しました", "results": results}
 
 
 # ═══════════════════════════════════════════

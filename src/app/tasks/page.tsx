@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { fetchTasks, fetchBaselines, createBaseline, runTask, fetchTaskStatus } from '@/lib/api';
-import { Play, Loader2, X, Terminal, ArrowRight, Plus, ChevronDown } from 'lucide-react';
+import { fetchTasks, fetchBaselines, createBaseline, runTask, fetchTaskStatus, getTaskPreviewUrl } from '@/lib/api';
+import { Play, Loader2, X, Terminal, ArrowRight, Plus, ChevronDown, Eye } from 'lucide-react';
 
 interface Task {
   task_id: string;
@@ -38,6 +38,9 @@ export default function TasksPage() {
   const [running, setRunning] = useState<string | null>(null);
   const [mockMode, setMockMode] = useState(true);
   const [selectedBaseline, setSelectedBaseline] = useState('');
+
+  // Preview State
+  const [previewTask, setPreviewTask] = useState<Task | null>(null);
 
   // Log Viewer State
   const [showLogs, setShowLogs] = useState(false);
@@ -212,6 +215,31 @@ export default function TasksPage() {
         </div>
       )}
 
+      {/* Preview Modal */}
+      {previewTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-surface border border-white/10 w-full max-w-3xl rounded-xl shadow-2xl flex flex-col max-h-[85vh]">
+            <div className="flex justify-between items-center p-4 border-b border-white/10 bg-surface-highlight/30">
+              <div className="flex items-center gap-2 text-sm">
+                <Eye size={16} className="text-primary" />
+                <span>プレビュー: {previewTask.description}</span>
+              </div>
+              <button type="button" onClick={() => setPreviewTask(null)} className="text-text-muted hover:text-white" title="閉じる">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <iframe
+                src={getTaskPreviewUrl(previewTask.task_id)}
+                className="w-full h-full min-h-[500px] bg-white"
+                sandbox="allow-same-origin"
+                title={`Preview: ${previewTask.task_id}`}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Log Viewer Modal */}
       {showLogs && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -297,7 +325,15 @@ export default function TasksPage() {
                 </div>
               </div>
 
-              <div className="mt-8 pt-4 border-t border-white/5 flex justify-end">
+              <div className="mt-8 pt-4 border-t border-white/5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPreviewTask(task)}
+                  className="px-3 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-text-muted hover:text-white"
+                  title="プレビュー"
+                >
+                  <Eye size={16} />
+                </button>
                 <button
                   type="button"
                   onClick={() => handleRun(task.task_id)}

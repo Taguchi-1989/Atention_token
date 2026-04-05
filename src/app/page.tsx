@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import Link from 'next/link';
-import { fetchStats, fetchRuns, fetchTasks } from '@/lib/api';
-import { ArrowUpRight, Activity, Users, Layers, Zap, Clock, RefreshCw } from 'lucide-react';
+import { fetchStats, fetchRuns, fetchTasks, runDemo } from '@/lib/api';
+import { ArrowUpRight, Activity, Users, Layers, Zap, Clock, RefreshCw, Loader2, PlayCircle, BarChart2 } from 'lucide-react';
 
 interface Stats {
   total_runs: number;
@@ -24,10 +25,26 @@ interface RunItem {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentRuns, setRecentRuns] = useState<RunItem[]>([]);
   const [taskCount, setTaskCount] = useState(0);
   const [apiOk, setApiOk] = useState<boolean | null>(null);
+  const [demoState, setDemoState] = useState<'idle' | 'running' | 'done'>('idle');
+  const [demoError, setDemoError] = useState<string | null>(null);
+
+  const handleRunDemo = async () => {
+    setDemoState('running');
+    setDemoError(null);
+    try {
+      await runDemo();
+      setDemoState('done');
+      router.push('/ledger');
+    } catch {
+      setDemoError('デモの実行に失敗しました。サーバーが起動しているか確認してください。');
+      setDemoState('idle');
+    }
+  };
 
   const loadData = () => {
     setApiOk(null);
@@ -83,6 +100,38 @@ export default function Home() {
                 </div>
            </div>
         </header>
+
+        {/* ワンクリックデモ */}
+        <div className="glass-panel p-6 border border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
+                <BarChart2 size={20} className="text-primary" />
+                ワンクリック A/B 比較デモ
+              </h3>
+              <p className="text-sm text-text-muted">
+                v1（悪いUI）と v2（良いUI）をAIエージェントに操作させ、トークン消費量の差を比較します。LLM不要のモックモードで動作します。
+              </p>
+              {demoError && <p className="text-xs text-error mt-2">{demoError}</p>}
+            </div>
+            <div className="shrink-0">
+              <button
+                type="button"
+                onClick={handleRunDemo}
+                disabled={demoState === 'running'}
+                className="flex items-center gap-2 px-6 py-3 rounded-lg bg-primary hover:bg-primary/80 disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-white font-semibold text-sm whitespace-nowrap shadow-lg shadow-primary/20"
+              >
+                {demoState === 'running' ? (
+                  <><Loader2 size={16} className="animate-spin" /> 実行中... (6タスク)</>
+                ) : demoState === 'done' ? (
+                  <><BarChart2 size={16} /> 結果を見る</>
+                ) : (
+                  <><PlayCircle size={16} /> デモを実行</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
