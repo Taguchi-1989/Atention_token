@@ -9,8 +9,8 @@ class AgentAction(BaseModel):
     action: str
     target: Optional[str] = None
     value: Optional[str] = None
-    confidence: str
-    note: str
+    confidence: str = "medium"
+    note: str = ""
 
 class FirstTimeUserAgent:
     def __init__(self, adapter: LLMAdapter, system_prompt: str = SYSTEM_PROMPT_V1):
@@ -46,20 +46,24 @@ Return ONLY valid JSON.
         
         # Parse JSON
         try:
-            # Simple heuristic to extract JSON if the model adds markdown code blocks
             content = response.content.strip()
+            # Remove <think>...</think> tags (Qwen3 thinking mode)
+            import re as _re
+            content = _re.sub(r'<think>.*?</think>', '', content, flags=_re.DOTALL).strip()
+            # Remove markdown code blocks
             if content.startswith("```json"):
-                content = content.replace("```json", "", 1) # Replace first occurrence
+                content = content.replace("```json", "", 1)
                 if content.endswith("```"):
                     content = content[:-3]
             elif content.startswith("```"):
                 content = content.replace("```", "", 1)
                 if content.endswith("```"):
                     content = content[:-3]
-            
             content = content.strip()
-            # Handle potential multiple JSONs or trailing text? For now assume clean output
-            
+            # Extract first JSON object if there's trailing text
+            match = _re.search(r'\{[^{}]*\}', content)
+            if match:
+                content = match.group(0)
             data = json.loads(content)
             action = AgentAction(**data)
             
