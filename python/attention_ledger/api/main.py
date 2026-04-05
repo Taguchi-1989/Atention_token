@@ -563,8 +563,8 @@ def export_csv(
 
 _DEMO_BEFORE = "BL-DEMO-BEFORE"
 _DEMO_AFTER = "BL-DEMO-AFTER"
-_DEMO_V1_TASKS = ["expense_input_v1", "shopping_cart_v1", "inquiry_form_v1"]
-_DEMO_V2_TASKS = ["expense_input_v2", "shopping_cart_v2", "inquiry_form_v2"]
+_DEMO_V1_TASKS = ["expense_v1", "shopping_cart_v1", "inquiry_form_v1"]
+_DEMO_V2_TASKS = ["expense_v2", "shopping_cart_v2", "inquiry_form_v2"]
 
 
 @api.post("/demo/run")

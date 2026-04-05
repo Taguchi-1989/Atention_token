@@ -1,0 +1,10 @@
+task_id: HTTPBIN_FORM_V1
+description: httpbin.org のピザ注文フォームに入力して送信する
+start_condition: page_loaded
+goal_condition: form_submitted
+url: https://httpbin.org/forms/post
+input_data:
+  custname: Taguchi
+  custtel: "090-1234-5678"
+  custemail: test@example.com
+  comments: テスト注文です
