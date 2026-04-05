@@ -6,8 +6,8 @@ describe('API Configuration', () => {
     expect(typeof API_BASE_URL).toBe('string');
   });
 
-  it('defaults to localhost when env not set', () => {
-    // In test environment, NEXT_PUBLIC_API_BASE_URL is not set
-    expect(API_BASE_URL).toBe('http://localhost:8000');
+  it('defaults to empty string (same origin) when env not set', () => {
+    // Same-origin: no prefix needed when served by FastAPI
+    expect(API_BASE_URL).toBe('');
   });
 });

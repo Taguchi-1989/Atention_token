@@ -41,19 +41,22 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
-# ── CORS ──
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["Content-Type"],
-)
+# ── CORS (dev only — production serves from same origin) ──
+if os.getenv("ATTENTION_LEDGER_DEV"):
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
+        allow_headers=["Content-Type"],
+    )
 
 # ── Paths ──
 _PYTHON_DIR = Path(__file__).resolve().parents[2]
+_PROJECT_ROOT = _PYTHON_DIR.parent  # repo root (contains out/, python/, src/)
 _DEFAULT_TASKS_DIR = _PYTHON_DIR / "tasks"
 _DEFAULT_DB_PATH = _PYTHON_DIR / "ledger.db"
+_STATIC_DIR = Path(os.getenv("ATTENTION_LEDGER_STATIC_DIR", str(_PROJECT_ROOT / "out")))
 
 # ── Input validation ──
 _SAFE_ID_RE = re.compile(r'^[a-zA-Z0-9_\-]+$')
@@ -540,3 +543,13 @@ def export_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ═══════════════════════════════════════════
+# Static file serving (Next.js export)
+# Must be LAST — catches all non-API routes
+# ═══════════════════════════════════════════
+
+if _STATIC_DIR.exists():
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/", StaticFiles(directory=str(_STATIC_DIR), html=True), name="static")
