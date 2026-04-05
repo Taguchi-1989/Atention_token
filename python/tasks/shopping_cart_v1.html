@@ -1,0 +1,175 @@
+<!doctype html>
+<html>
+  <head>
+    <title>SHOP MEGA DEAL$ ONLINE</title>
+    <style>
+      body { font-family: Arial; background: #ffe; margin: 0; }
+      .topbar { background: #f00; color: #ff0; padding: 6px; font-size: 0.75rem; text-align: center; }
+      .nav { background: #333; display: flex; gap: 4px; padding: 4px; flex-wrap: wrap; }
+      .nav a { color: #aaa; text-decoration: none; font-size: 0.7rem; padding: 2px 4px; }
+      .content { display: flex; gap: 8px; padding: 8px; }
+      .sidebar { width: 160px; flex-shrink: 0; }
+      .sidebar h4 { font-size: 0.75rem; margin: 4px 0; color: #555; border-bottom: 1px solid #ccc; }
+      .sidebar label { display: block; font-size: 0.7rem; margin: 2px 0; }
+      .main { flex: 1; }
+      .promo-banner { background: repeating-linear-gradient(45deg, #f9c, #fc9 10px); padding: 6px; text-align: center; font-size: 0.8rem; font-weight: bold; margin-bottom: 8px; }
+      .search-row { display: flex; gap: 4px; margin-bottom: 6px; }
+      .search-row input { flex: 1; font-size: 0.75rem; padding: 2px 4px; border: 1px solid #999; }
+      .search-row select { font-size: 0.7rem; }
+      .search-row button { font-size: 0.7rem; padding: 2px 6px; background: #f90; border: 1px solid #c60; cursor: pointer; }
+      .results { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+      .item { border: 1px solid #ccc; padding: 6px; font-size: 0.75rem; background: #fff; }
+      .item img { width: 100%; height: 60px; background: #ddd; display: block; font-size: 0.6rem; line-height: 60px; text-align: center; }
+      .item .name { font-weight: bold; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 0.7rem; }
+      .item .price { color: #c00; font-weight: bold; }
+      .item .old-price { text-decoration: line-through; color: #888; font-size: 0.65rem; }
+      .item .stars { color: #f80; font-size: 0.65rem; }
+      .item .actions { display: flex; gap: 2px; margin-top: 4px; flex-wrap: wrap; }
+      .item .actions button { font-size: 0.6rem; padding: 1px 4px; cursor: pointer; }
+      .item .actions button.cart { background: #090; color: #fff; border: none; }
+      .item .actions button.wish { background: #fff; border: 1px solid #999; }
+      .item .actions button.compare { background: #eef; border: 1px solid #99c; }
+      .qty-row { display: flex; align-items: center; gap: 2px; margin-top: 3px; }
+      .qty-row input { width: 30px; font-size: 0.7rem; text-align: center; padding: 1px; }
+      .qty-row label { font-size: 0.65rem; color: #555; }
+      .popup { display: none; position: fixed; top: 10px; right: 10px; background: #fff; border: 2px solid #090; padding: 10px; font-size: 0.8rem; z-index: 999; }
+      .popup.show { display: block; }
+    </style>
+  </head>
+  <body>
+    <div class="topbar">!! FLASH SALE — UP TO 70% OFF TODAY ONLY !! FREE SHIPPING ON ORDERS OVER ¥5000 !! MEMBERS GET EXTRA 5% !!</div>
+    <div class="nav">
+      <a href="#">Home</a><a href="#">Electronics</a><a href="#">Cameras</a><a href="#">Audio</a>
+      <a href="#">Computers</a><a href="#">TV</a><a href="#">Gaming</a><a href="#">Smart Home</a>
+      <a href="#">Accessories</a><a href="#">Deals</a><a href="#">Clearance</a><a href="#">New Arrivals</a>
+    </div>
+    <div class="content">
+      <div class="sidebar">
+        <h4>Filter By</h4>
+        <h4>Brand</h4>
+        <label><input type="checkbox" /> Sony</label>
+        <label><input type="checkbox" checked /> Bose</label>
+        <label><input type="checkbox" /> JBL</label>
+        <label><input type="checkbox" /> Sennheiser</label>
+        <label><input type="checkbox" /> Apple</label>
+        <label><input type="checkbox" /> Samsung</label>
+        <h4>Price Range</h4>
+        <label><input type="radio" name="pr" /> Under ¥10,000</label>
+        <label><input type="radio" name="pr" checked /> ¥10,000〜¥50,000</label>
+        <label><input type="radio" name="pr" /> Over ¥50,000</label>
+        <h4>Rating</h4>
+        <label><input type="checkbox" checked /> 4★ &amp; up</label>
+        <label><input type="checkbox" /> 3★ &amp; up</label>
+        <h4>Availability</h4>
+        <label><input type="checkbox" checked /> In Stock Only</label>
+        <label><input type="checkbox" /> Include Pre-Order</label>
+        <h4>Delivery</h4>
+        <label><input type="checkbox" /> Prime Eligible</label>
+        <label><input type="checkbox" checked /> Ships within 2 days</label>
+        <br/>
+        <button style="font-size:0.65rem;width:100%">Apply Filters</button>
+        <button style="font-size:0.65rem;width:100%;margin-top:2px">Clear All</button>
+      </div>
+      <div class="main">
+        <div class="promo-banner">SPECIAL OFFER: Buy 2 Get 1 FREE on Selected Audio Products! Code: AUDIO321</div>
+        <div class="search-row">
+          <input type="text" id="q" value="wireless headphones" />
+          <select><option>All Categories</option><option selected>Electronics &gt; Audio</option><option>Computers</option></select>
+          <button onclick="doSearch()">SEARCH</button>
+          <button style="background:#eef;border:1px solid #99c;font-size:0.7rem;padding:2px 6px">Advanced Search</button>
+        </div>
+        <div style="font-size:0.7rem;color:#555;margin-bottom:4px">Showing 1–6 of 47 results for "wireless headphones" | Sort by: <select style="font-size:0.7rem"><option>Relevance</option><option>Price: Low</option><option>Price: High</option><option>Best Rated</option><option>New Arrivals</option></select></div>
+        <div class="results" id="results">
+          <div class="item">
+            <img alt="Product image">Sony WH-1000XM5</img>
+            <div class="name" title="Sony WH-1000XM5 Wireless Noise Cancelling Headphones Black">Sony WH-1000XM5 Wireless Noise Cancelling</div>
+            <div class="stars">★★★★★ (2,341)</div>
+            <div class="old-price">¥49,500</div>
+            <div class="price">¥38,500 <span style="background:#f00;color:#fff;font-size:0.6rem;padding:1px 3px">-22%</span></div>
+            <div class="qty-row"><label>Qty:</label><input type="number" value="1" min="1" id="qty_xm5" /></div>
+            <div class="actions">
+              <button class="cart" id="add_xm5" onclick="addCart('Sony WH-1000XM5', 'xm5')">Add to Cart</button>
+              <button class="wish">♡ Save</button>
+              <button class="compare">Compare</button>
+            </div>
+          </div>
+          <div class="item">
+            <img alt="Product image" style="background:#dde">Bose QC45</img>
+            <div class="name" title="Bose QuietComfort 45 Bluetooth Wireless Noise Cancelling Headphones">Bose QuietComfort 45</div>
+            <div class="stars">★★★★☆ (1,204)</div>
+            <div class="old-price">¥44,000</div>
+            <div class="price">¥39,600</div>
+            <div class="qty-row"><label>Qty:</label><input type="number" value="1" min="1" id="qty_qc45" /></div>
+            <div class="actions">
+              <button class="cart" onclick="addCart('Bose QC45', 'qc45')">Add to Cart</button>
+              <button class="wish">♡ Save</button>
+              <button class="compare">Compare</button>
+            </div>
+          </div>
+          <div class="item" style="border:2px solid #f90">
+            <div style="background:#f90;color:#fff;font-size:0.6rem;text-align:center;padding:1px">SPONSORED</div>
+            <img alt="Sponsored" style="background:#fed">Generic BT Pro 500</img>
+            <div class="name">BT Pro 500 Wireless</div>
+            <div class="stars">★★★☆☆ (88)</div>
+            <div class="price">¥8,800</div>
+            <div class="qty-row"><label>Qty:</label><input type="number" value="1" min="1" /></div>
+            <div class="actions">
+              <button class="cart">Add to Cart</button>
+              <button class="wish">♡ Save</button>
+            </div>
+          </div>
+          <div class="item">
+            <img alt="Product image" style="background:#ded">JBL Tune 770NC</img>
+            <div class="name">JBL Tune 770NC Wireless Noise Cancelling</div>
+            <div class="stars">★★★★☆ (763)</div>
+            <div class="price">¥19,800</div>
+            <div class="qty-row"><label>Qty:</label><input type="number" value="1" min="1" /></div>
+            <div class="actions">
+              <button class="cart">Add to Cart</button>
+              <button class="wish">♡ Save</button>
+              <button class="compare">Compare</button>
+            </div>
+          </div>
+          <div class="item">
+            <img alt="Product image" style="background:#edf">Sennheiser HD 450</img>
+            <div class="name">Sennheiser HD 450BT Wireless</div>
+            <div class="stars">★★★★☆ (442)</div>
+            <div class="price">¥17,600</div>
+            <div class="qty-row"><label>Qty:</label><input type="number" value="1" min="1" /></div>
+            <div class="actions">
+              <button class="cart">Add to Cart</button>
+              <button class="wish">♡ Save</button>
+              <button class="compare">Compare</button>
+            </div>
+          </div>
+          <div class="item">
+            <img alt="Product image" style="background:#dff">Apple AirPods Max</img>
+            <div class="name">Apple AirPods Max</div>
+            <div class="stars">★★★★★ (5,102)</div>
+            <div class="price">¥79,800</div>
+            <div style="font-size:0.65rem;color:#a00">Price above your filter (¥50,000+)</div>
+            <div class="qty-row"><label>Qty:</label><input type="number" value="1" min="1" /></div>
+            <div class="actions">
+              <button class="cart">Add to Cart</button>
+              <button class="wish">♡ Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="popup" id="cart_popup"></div>
+
+    <script>
+      function doSearch() {
+        // search is pre-populated for demo
+      }
+      function addCart(name, id) {
+        var popup = document.getElementById('cart_popup');
+        popup.textContent = name + ' added to cart!';
+        popup.classList.add('show');
+        setTimeout(function() { popup.classList.remove('show'); }, 2000);
+      }
+    </script>
+  </body>
+</html>

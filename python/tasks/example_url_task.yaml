@@ -1,0 +1,8 @@
+task_id: EXAMPLE_URL_V1
+description: Navigate and fill a form on a live web page
+url: http://localhost:3000  # placeholder - user replaces with their URL
+start_condition: page_loaded
+goal_condition: form_submitted
+input_data:
+  name: Test User
+  email: test@example.com

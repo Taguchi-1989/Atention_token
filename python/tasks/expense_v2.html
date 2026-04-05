@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Submit Travel Expense</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f5f7fa;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        min-height: 100vh;
+        padding: 2rem 1rem;
+        margin: 0;
+      }
+      .card {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 12px rgba(0,0,0,.08);
+        padding: 2rem;
+        width: 100%;
+        max-width: 480px;
+      }
+      h1 { font-size: 1.4rem; margin: 0 0 0.25rem; color: #111; }
+      .subtitle { color: #666; font-size: 0.9rem; margin: 0 0 1.75rem; }
+      label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 0.35rem;
+      }
+      .field { margin-bottom: 1.25rem; }
+      input, select {
+        width: 100%;
+        padding: 0.55rem 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.95rem;
+        color: #111;
+        background: #fff;
+        transition: border-color 0.15s;
+      }
+      input:focus, select:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+      }
+      .hint { font-size: 0.78rem; color: #888; margin-top: 0.25rem; }
+      .row { display: flex; gap: 1rem; }
+      .row .field { flex: 1; }
+      button[type="submit"] {
+        width: 100%;
+        padding: 0.7rem;
+        background: #2563eb;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 0.5rem;
+        transition: background 0.15s;
+      }
+      button[type="submit"]:hover { background: #1d4ed8; }
+      #confirmation {
+        display: none;
+        margin-top: 1rem;
+        padding: 0.75rem 1rem;
+        background: #ecfdf5;
+        border: 1px solid #6ee7b7;
+        border-radius: 6px;
+        color: #065f46;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Submit Travel Expense</h1>
+      <p class="subtitle">Fill in your trip details and click Submit to record the claim.</p>
+
+      <form id="expense_form" novalidate>
+        <div class="field">
+          <label for="travel_date">Travel Date</label>
+          <input
+            type="date"
+            id="travel_date"
+            name="travel_date"
+            value="2026-04-01"
+            required
+          />
+          <span class="hint">When did the trip take place?</span>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="origin">From</label>
+            <input
+              type="text"
+              id="origin"
+              name="origin"
+              placeholder="Tokyo"
+              value="東京"
+              required
+            />
+          </div>
+          <div class="field">
+            <label for="destination">To</label>
+            <input
+              type="text"
+              id="destination"
+              name="destination"
+              placeholder="Osaka"
+              value="新宿"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="transport_type">Transport Type</label>
+          <select id="transport_type" name="transport_type">
+            <option value="train" selected>Train</option>
+            <option value="bus">Bus</option>
+            <option value="taxi">Taxi</option>
+            <option value="flight">Flight</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="amount">Amount (JPY)</label>
+          <input
+            type="number"
+            id="amount"
+            name="amount"
+            placeholder="0"
+            value="1280"
+            min="0"
+            required
+          />
+          <span class="hint">Enter the exact fare shown on your receipt.</span>
+        </div>
+
+        <button type="submit" id="submit_btn">Submit Claim</button>
+      </form>
+
+      <div id="confirmation" role="alert">
+        Expense submitted successfully. Your claim has been recorded.
+      </div>
+    </div>
+
+    <script>
+      document.getElementById('expense_form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        this.style.display = 'none';
+        document.getElementById('confirmation').style.display = 'block';
+      });
+    </script>
+  </body>
+</html>

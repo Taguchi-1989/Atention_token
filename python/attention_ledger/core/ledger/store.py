@@ -128,6 +128,33 @@ class LedgerStore:
             ''', (task_id, baseline_id))
             return c.fetchall()
 
+    def get_records_for_task(self, task_id: str, limit: int = 100) -> List[tuple]:
+        with self._conn() as conn:
+            c = conn.cursor()
+            c.execute(
+                'SELECT * FROM ledger WHERE task_id = ? ORDER BY executed_at ASC LIMIT ?',
+                (task_id, limit),
+            )
+            return c.fetchall()
+
+    def get_all_records(self, task_id: Optional[str] = None, baseline_id: Optional[str] = None) -> List[tuple]:
+        with self._conn() as conn:
+            c = conn.cursor()
+            query = 'SELECT * FROM ledger'
+            params: list = []
+            clauses: list = []
+            if task_id:
+                clauses.append('task_id = ?')
+                params.append(task_id)
+            if baseline_id:
+                clauses.append('baseline_id = ?')
+                params.append(baseline_id)
+            if clauses:
+                query += ' WHERE ' + ' AND '.join(clauses)
+            query += ' ORDER BY executed_at ASC'
+            c.execute(query, params)
+            return c.fetchall()
+
     # ── Dashboard Stats ──
 
     def get_stats(self) -> dict:

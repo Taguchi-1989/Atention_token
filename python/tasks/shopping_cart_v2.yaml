@@ -1,0 +1,8 @@
+task_id: SHOPPING_CART_V2
+description: ECサイトで特定の商品を検索してカートに追加する（改善版 — 明確なレイアウト）
+start_condition: home_page_loaded
+goal_condition: item_added_to_cart_success
+input_data:
+  search_term: "wireless headphones"
+  target_item: "Sony WH-1000XM5"
+  max_price: 40000

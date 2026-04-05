@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Search Results — Audio Shop</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f8f9fa;
+        margin: 0;
+        padding: 1.5rem 1rem;
+        color: #111;
+      }
+      header { max-width: 800px; margin: 0 auto 1.5rem; }
+      header h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
+      .search-bar {
+        display: flex;
+        gap: 0.5rem;
+      }
+      .search-bar input {
+        flex: 1;
+        padding: 0.55rem 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.95rem;
+      }
+      .search-bar input:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+      }
+      .search-bar button {
+        padding: 0.55rem 1.2rem;
+        background: #2563eb;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .results-meta { max-width: 800px; margin: 0 auto 1rem; font-size: 0.85rem; color: #555; }
+      .product-list { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem; }
+      .product-card {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+      }
+      .product-card .thumb {
+        width: 80px;
+        height: 80px;
+        background: #e5e7eb;
+        border-radius: 6px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.65rem;
+        color: #888;
+        text-align: center;
+      }
+      .product-info { flex: 1; }
+      .product-name { font-weight: 600; font-size: 1rem; margin: 0 0 0.25rem; }
+      .product-stars { color: #f59e0b; font-size: 0.85rem; }
+      .product-stars span { color: #555; font-size: 0.8rem; }
+      .product-price { font-size: 1.1rem; font-weight: 700; color: #111; margin: 0.4rem 0; }
+      .product-price .old { font-size: 0.85rem; color: #888; text-decoration: line-through; margin-right: 0.4rem; font-weight: 400; }
+      .product-price .badge { background: #dcfce7; color: #15803d; font-size: 0.75rem; font-weight: 600; padding: 1px 6px; border-radius: 4px; }
+      .add-to-cart-area { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; }
+      .qty-label { font-size: 0.85rem; color: #444; }
+      .qty-input { width: 56px; padding: 0.35rem 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; text-align: center; }
+      .btn-add {
+        padding: 0.45rem 1.1rem;
+        background: #2563eb;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .btn-add:hover { background: #1d4ed8; }
+      .toast {
+        display: none;
+        position: fixed;
+        bottom: 1.5rem;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #111;
+        color: #fff;
+        padding: 0.65rem 1.25rem;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        z-index: 100;
+        white-space: nowrap;
+      }
+      .toast.show { display: block; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Audio Shop</h1>
+      <div class="search-bar">
+        <input
+          type="search"
+          id="search_input"
+          aria-label="Search products"
+          placeholder="Search products…"
+          value="wireless headphones"
+        />
+        <button id="search_btn" type="button">Search</button>
+      </div>
+    </header>
+
+    <p class="results-meta">Showing 5 results for <strong>"wireless headphones"</strong> — sorted by relevance</p>
+
+    <ul class="product-list" aria-label="Search results">
+
+      <li class="product-card">
+        <div class="thumb">Sony WH-1000XM5</div>
+        <div class="product-info">
+          <p class="product-name">Sony WH-1000XM5 Wireless Noise-Cancelling Headphones</p>
+          <p class="product-stars">★★★★★ <span>(2,341 reviews)</span></p>
+          <p class="product-price"><span class="old">¥49,500</span> ¥38,500 <span class="badge">-22%</span></p>
+          <div class="add-to-cart-area">
+            <label class="qty-label" for="qty_xm5">Qty:</label>
+            <input class="qty-input" type="number" id="qty_xm5" value="1" min="1" max="10" />
+            <button class="btn-add" id="add_xm5" data-name="Sony WH-1000XM5">Add to Cart</button>
+          </div>
+        </div>
+      </li>
+
+      <li class="product-card">
+        <div class="thumb">Bose QC45</div>
+        <div class="product-info">
+          <p class="product-name">Bose QuietComfort 45 Wireless Noise-Cancelling Headphones</p>
+          <p class="product-stars">★★★★☆ <span>(1,204 reviews)</span></p>
+          <p class="product-price">¥39,600</p>
+          <div class="add-to-cart-area">
+            <label class="qty-label" for="qty_qc45">Qty:</label>
+            <input class="qty-input" type="number" id="qty_qc45" value="1" min="1" max="10" />
+            <button class="btn-add" id="add_qc45" data-name="Bose QuietComfort 45">Add to Cart</button>
+          </div>
+        </div>
+      </li>
+
+      <li class="product-card">
+        <div class="thumb">JBL Tune 770NC</div>
+        <div class="product-info">
+          <p class="product-name">JBL Tune 770NC Wireless Noise-Cancelling Headphones</p>
+          <p class="product-stars">★★★★☆ <span>(763 reviews)</span></p>
+          <p class="product-price">¥19,800</p>
+          <div class="add-to-cart-area">
+            <label class="qty-label" for="qty_jbl">Qty:</label>
+            <input class="qty-input" type="number" id="qty_jbl" value="1" min="1" max="10" />
+            <button class="btn-add" id="add_jbl" data-name="JBL Tune 770NC">Add to Cart</button>
+          </div>
+        </div>
+      </li>
+
+      <li class="product-card">
+        <div class="thumb">Sennheiser HD 450BT</div>
+        <div class="product-info">
+          <p class="product-name">Sennheiser HD 450BT Wireless Noise-Cancelling Headphones</p>
+          <p class="product-stars">★★★★☆ <span>(442 reviews)</span></p>
+          <p class="product-price">¥17,600</p>
+          <div class="add-to-cart-area">
+            <label class="qty-label" for="qty_sen">Qty:</label>
+            <input class="qty-input" type="number" id="qty_sen" value="1" min="1" max="10" />
+            <button class="btn-add" id="add_sen" data-name="Sennheiser HD 450BT">Add to Cart</button>
+          </div>
+        </div>
+      </li>
+
+      <li class="product-card">
+        <div class="thumb">Apple AirPods Max</div>
+        <div class="product-info">
+          <p class="product-name">Apple AirPods Max</p>
+          <p class="product-stars">★★★★★ <span>(5,102 reviews)</span></p>
+          <p class="product-price">¥79,800</p>
+          <div class="add-to-cart-area">
+            <label class="qty-label" for="qty_apm">Qty:</label>
+            <input class="qty-input" type="number" id="qty_apm" value="1" min="1" max="10" />
+            <button class="btn-add" id="add_apm" data-name="Apple AirPods Max">Add to Cart</button>
+          </div>
+        </div>
+      </li>
+
+    </ul>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      document.querySelector('.product-list').addEventListener('click', function (e) {
+        var btn = e.target.closest('.btn-add');
+        if (!btn) return;
+        var name = btn.dataset.name;
+        var toast = document.getElementById('toast');
+        toast.textContent = name + ' added to cart.';
+        toast.classList.add('show');
+        setTimeout(function () { toast.classList.remove('show'); }, 2500);
+      });
+    </script>
+  </body>
+</html>

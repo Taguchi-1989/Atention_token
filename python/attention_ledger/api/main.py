@@ -479,3 +479,64 @@ def update_config(req: ConfigUpdateRequest):
     settings.model_name = req.model_name
     settings.temperature = req.temperature
     return {"status": "updated", "config": get_config()}
+
+
+# ═══════════════════════════════════════════
+# CSV Export
+# ═══════════════════════════════════════════
+
+@app.get("/export/csv")
+def export_csv(
+    task_id: Optional[str] = Query(None, max_length=128, pattern=r'^[a-zA-Z0-9_\-]+$'),
+    baseline_id: Optional[str] = Query(None, max_length=128, pattern=r'^[a-zA-Z0-9_\-]+$'),
+):
+    """Export ledger records as a CSV file download."""
+    import csv
+    import io
+    from starlette.responses import StreamingResponse
+
+    store = _store()
+    rows = store.get_all_records(task_id=task_id, baseline_id=baseline_id)
+
+    metrics_keys: list = []
+    parsed_metrics: list = []
+    for row in rows:
+        m = None
+        if row[11]:
+            try:
+                m = json.loads(row[11])
+            except (json.JSONDecodeError, TypeError):
+                pass
+        parsed_metrics.append(m)
+        if m:
+            for k in m:
+                if k not in metrics_keys:
+                    metrics_keys.append(k)
+
+    base_cols = [
+        "id", "task_id", "baseline_id", "executed_at", "success",
+        "failure_reason", "total_tokens", "input_tokens", "output_tokens",
+        "step_count", "retry_count",
+    ]
+    fieldnames = base_cols + metrics_keys
+
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    for row, metrics in zip(rows, parsed_metrics):
+        record = {
+            "id": row[0], "task_id": row[1], "baseline_id": row[2],
+            "executed_at": row[3], "success": row[4], "failure_reason": row[5],
+            "total_tokens": row[6], "input_tokens": row[7], "output_tokens": row[8],
+            "step_count": row[9], "retry_count": row[10],
+        }
+        for k in metrics_keys:
+            record[k] = metrics.get(k, "") if metrics else ""
+        writer.writerow(record)
+
+    filename = f"attention_ledger_{task_id}.csv" if task_id else "attention_ledger_export.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

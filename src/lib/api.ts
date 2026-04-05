@@ -110,3 +110,22 @@ export async function updateConfig(config: { ollama_url: string; model_name: str
   if (!res.ok) throw new Error('Failed to update config');
   return res.json();
 }
+
+// ── CSV Export ──
+
+export function getExportCsvUrl(taskId?: string, baselineId?: string): string {
+  const params = new URLSearchParams();
+  if (taskId) params.set('task_id', taskId);
+  if (baselineId) params.set('baseline_id', baselineId);
+  const qs = params.toString();
+  return `${API_BASE_URL}/export/csv${qs ? `?${qs}` : ''}`;
+}
+
+// ── Task Runs (for trend charts) ──
+
+export async function fetchRunsForTask(taskId: string, limit = 100) {
+  const res = await fetch(`${API_BASE_URL}/runs?limit=${limit}&include_metrics=true`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Failed to fetch runs');
+  const all = await res.json();
+  return (all as Array<{ task_id: string }>).filter(r => r.task_id === taskId);
+}

@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { fetchRuns, fetchBaselines, fetchMetricsDiff } from '@/lib/api';
-import React from 'react';
-import { CheckCircle2, XCircle, Clock, Zap, FileJson, BarChart3, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import MetricsChart from '@/components/MetricsChart';
+import TrendChart from '@/components/TrendChart';
+import { fetchRuns, fetchRunsForTask, getExportCsvUrl } from '@/lib/api';
+import { CheckCircle2, XCircle, Clock, Zap, FileJson, Download, BarChart2, TrendingUp } from 'lucide-react';
+import { clsx } from 'clsx';
 
 interface HistoryItem {
   id: number;
@@ -21,181 +23,357 @@ interface HistoryItem {
   metrics?: Record<string, unknown> | null;
 }
 
-interface Baseline {
-  baseline_id: string;
-}
+const CHART_METRIC_KEYS = ['total_tokens', 'input_tokens', 'output_tokens', 'step_count', 'retry_count'];
+const TREND_METRIC_OPTIONS = [
+  { key: 'total_tokens', label: 'Total Tokens' },
+  { key: 'step_count', label: 'Steps' },
+  { key: 'retry_count', label: 'Retries' },
+  { key: 'sus_inspired_score', label: 'SUS Score' },
+];
 
-interface DiffBaseline {
-  id: string;
-  total_tokens: number;
-  input_tokens: number;
-  output_tokens: number;
-  step_count: number;
-  retry_count: number;
-  run_count: number;
-  [key: string]: string | number;
-}
-
-interface DiffResult {
-  task_id: string;
-  baseline_a: DiffBaseline;
-  baseline_b: DiffBaseline;
-  delta: Record<string, number>;
-}
+type ActiveSection = 'table' | 'compare' | 'trends';
 
 export default function LedgerPage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [baselines, setBaselines] = useState<Baseline[]>([]);
-  const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const [activeSection, setActiveSection] = useState<ActiveSection>('table');
 
-  // Diff state
-  const [showDiff, setShowDiff] = useState(false);
-  const [diffTaskId, setDiffTaskId] = useState('');
-  const [diffA, setDiffA] = useState('');
-  const [diffB, setDiffB] = useState('');
-  const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
-  const [diffLoading, setDiffLoading] = useState(false);
-  const [diffError, setDiffError] = useState('');
+  // Compare state
+  const [baselineAId, setBaselineAId] = useState('');
+  const [baselineBId, setBaselineBId] = useState('');
+
+  // Trends state
+  const [selectedTaskId, setSelectedTaskId] = useState('');
+  const [trendMetric, setTrendMetric] = useState('total_tokens');
+  const [trendRuns, setTrendRuns] = useState<HistoryItem[]>([]);
+  const [trendLoading, setTrendLoading] = useState(false);
 
   useEffect(() => {
-    Promise.all([fetchRuns(true), fetchBaselines()])
-      .then(([runs, bls]) => { setHistory(runs); setBaselines(bls); })
+    fetchRuns(true)
+      .then((data: HistoryItem[]) => {
+        setHistory(data);
+        if (data.length > 0) {
+          setSelectedTaskId(data[0].task_id);
+        }
+        // Pre-fill baseline selectors with first two distinct baselines
+        const baselines = Array.from(new Set(data.map((r: HistoryItem) => r.baseline_id)));
+        if (baselines.length >= 1) setBaselineAId(baselines[0]);
+        if (baselines.length >= 2) setBaselineBId(baselines[1]);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  const uniqueTaskIds = Array.from(new Set(history.map(h => h.task_id)));
+  // Load trend data when selectedTaskId changes
+  useEffect(() => {
+    if (!selectedTaskId) return;
+    setTrendLoading(true);
+    fetchRunsForTask(selectedTaskId)
+      .then((data) => setTrendRuns(data as HistoryItem[]))
+      .catch(console.error)
+      .finally(() => setTrendLoading(false));
+  }, [selectedTaskId]);
 
-  const handleDiff = async () => {
-    if (!diffTaskId || !diffA || !diffB) return;
-    setDiffLoading(true);
-    setDiffError('');
-    setDiffResult(null);
-    try {
-      const result = await fetchMetricsDiff(diffTaskId, diffA, diffB);
-      setDiffResult(result);
-    } catch {
-      setDiffError('No matching records found for this combination.');
-    } finally {
-      setDiffLoading(false);
+  // Derive unique task IDs and baseline IDs from history
+  const taskIds = useMemo(() => Array.from(new Set(history.map(r => r.task_id))), [history]);
+  const baselineIds = useMemo(() => Array.from(new Set(history.map(r => r.baseline_id))), [history]);
+
+  // Build per-baseline average metrics for compare chart
+  const baselineAData = useMemo<Record<string, number>>(() => {
+    const rows = history.filter(r => r.baseline_id === baselineAId);
+    if (!rows.length) return {};
+    const result: Record<string, number> = {};
+    for (const key of CHART_METRIC_KEYS) {
+      const vals = rows.map(r => {
+        if (key === 'total_tokens') return r.total_tokens;
+        if (key === 'input_tokens') return r.input_tokens;
+        if (key === 'output_tokens') return r.output_tokens;
+        if (key === 'step_count') return r.step_count;
+        if (key === 'retry_count') return r.retry_count;
+        const v = r.metrics?.[key];
+        return typeof v === 'number' ? v : 0;
+      });
+      result[key] = vals.reduce((a, b) => a + b, 0) / vals.length;
     }
+    return result;
+  }, [history, baselineAId]);
+
+  const baselineBData = useMemo<Record<string, number>>(() => {
+    const rows = history.filter(r => r.baseline_id === baselineBId);
+    if (!rows.length) return {};
+    const result: Record<string, number> = {};
+    for (const key of CHART_METRIC_KEYS) {
+      const vals = rows.map(r => {
+        if (key === 'total_tokens') return r.total_tokens;
+        if (key === 'input_tokens') return r.input_tokens;
+        if (key === 'output_tokens') return r.output_tokens;
+        if (key === 'step_count') return r.step_count;
+        if (key === 'retry_count') return r.retry_count;
+        const v = r.metrics?.[key];
+        return typeof v === 'number' ? v : 0;
+      });
+      result[key] = vals.reduce((a, b) => a + b, 0) / vals.length;
+    }
+    return result;
+  }, [history, baselineBId]);
+
+  function handleExport() {
+    const url = getExportCsvUrl(
+      selectedTaskId || undefined,
+      undefined,
+    );
+    window.open(url, '_blank');
+  }
+
+  function handleExportAll() {
+    const url = getExportCsvUrl();
+    window.open(url, '_blank');
+  }
+
+  const reload = () => {
+    setLoading(true);
+    fetchRuns(true)
+      .then((data: HistoryItem[]) => setHistory(data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
   };
 
   return (
     <DashboardLayout>
-      <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+      <header className="mb-8 flex justify-between items-end">
         <div>
           <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">
             Execution Ledger
           </h2>
           <p className="text-text-muted mt-2">Audit trail of all agent execution runs and cost metrics.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => setShowDiff(!showDiff)}
-            className={`flex items-center gap-2 text-sm px-4 py-2 rounded-lg border transition-colors ${showDiff ? 'bg-primary/10 border-primary/30 text-primary' : 'border-white/10 text-text-muted hover:text-white hover:bg-white/5'}`}
+            onClick={handleExportAll}
+            className="flex items-center gap-2 btn-ghost text-sm text-primary hover:text-primary"
+            title="Export all records as CSV"
           >
-            <BarChart3 size={16} />
-            Compare Baselines
+            <Download size={15} />
+            Export All CSV
           </button>
-          <button
-            type="button"
-            onClick={() => fetchRuns(true).then(setHistory)}
-            className="btn-ghost text-sm"
-          >
+          <button type="button" onClick={reload} className="btn-ghost text-sm">
             Refresh
           </button>
         </div>
       </header>
 
-      {/* Diff Panel */}
-      {showDiff && (
-        <div className="glass-panel p-6 mb-6 space-y-4">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            <BarChart3 size={18} className="text-primary" />
-            Metrics Comparison
-          </h3>
+      {/* Section tabs */}
+      <div className="flex gap-1 mb-6 bg-surface rounded-xl p-1 w-fit border border-white/5">
+        {(
+          [
+            { key: 'table', icon: <FileJson size={15} />, label: 'Ledger' },
+            { key: 'compare', icon: <BarChart2 size={15} />, label: 'Compare' },
+            { key: 'trends', icon: <TrendingUp size={15} />, label: 'Trends' },
+          ] as { key: ActiveSection; icon: React.ReactNode; label: string }[]
+        ).map(tab => (
+          <button
+            type="button"
+            key={tab.key}
+            onClick={() => setActiveSection(tab.key)}
+            className={clsx(
+              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+              activeSection === tab.key
+                ? 'bg-surface-highlight text-white border border-white/10'
+                : 'text-text-muted hover:text-white'
+            )}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="text-xs text-text-muted block mb-1">Task</label>
-              <select
-                title="Select task for comparison"
-                value={diffTaskId}
-                onChange={e => setDiffTaskId(e.target.value)}
-                className="w-full bg-surface-highlight border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary"
-              >
-                <option value="">Select task</option>
-                {uniqueTaskIds.map(id => <option key={id} value={id}>{id}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-text-muted block mb-1">Baseline A</label>
-              <select
-                title="Select baseline A"
-                value={diffA}
-                onChange={e => setDiffA(e.target.value)}
-                className="w-full bg-surface-highlight border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary"
-              >
-                <option value="">Select</option>
-                {baselines.map(bl => <option key={bl.baseline_id} value={bl.baseline_id}>{bl.baseline_id}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-text-muted block mb-1">Baseline B</label>
-              <select
-                title="Select baseline B"
-                value={diffB}
-                onChange={e => setDiffB(e.target.value)}
-                className="w-full bg-surface-highlight border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary"
-              >
-                <option value="">Select</option>
-                {baselines.map(bl => <option key={bl.baseline_id} value={bl.baseline_id}>{bl.baseline_id}</option>)}
-              </select>
-            </div>
-            <div className="flex items-end">
-              <button type="button" onClick={handleDiff} disabled={diffLoading || !diffTaskId || !diffA || !diffB} className="btn-primary text-sm px-6 py-2 w-full disabled:opacity-50">
-                {diffLoading ? 'Loading...' : 'Compare'}
-              </button>
+      {/* Ledger table */}
+      {activeSection === 'table' && (
+        <div className="glass-panel overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/5 bg-surface-highlight/30 text-xs uppercase tracking-wider text-text-muted">
+                  <th className="p-4 font-semibold">Status</th>
+                  <th className="p-4 font-semibold">Task ID</th>
+                  <th className="p-4 font-semibold">Baseline</th>
+                  <th className="p-4 font-semibold">Cost (Tokens)</th>
+                  <th className="p-4 font-semibold">SUS</th>
+                  <th className="p-4 font-semibold">Executed At</th>
+                  <th className="p-4 font-semibold">Details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5 text-sm">
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-text-muted">Loading ledger...</td>
+                  </tr>
+                ) : history.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-text-muted">No records found. Run a task first.</td>
+                  </tr>
+                ) : (
+                  history.map(row => (
+                    <tr key={row.id} className="group hover:bg-white/5 transition-colors">
+                      <td className="p-4">
+                        {row.success ? (
+                          <div className="flex items-center gap-2 text-success">
+                            <CheckCircle2 size={18} />
+                            <span>Success</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-error" title={row.failure_reason || 'Unknown Error'}>
+                            <XCircle size={18} />
+                            <span>Failed</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-4 font-medium text-white font-mono">{row.task_id}</td>
+                      <td className="p-4 text-text-muted">{row.baseline_id}</td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-1.5 font-mono text-primary">
+                          <Zap size={14} />
+                          {row.total_tokens.toLocaleString()}
+                        </div>
+                      </td>
+                      <td className="p-4 text-text-muted">
+                        {row.metrics?.sus_inspired_score != null ? (
+                          <span className="text-primary font-semibold">
+                            {Number(row.metrics?.sus_inspired_score).toFixed(1)}
+                          </span>
+                        ) : (
+                          <span className="text-text-muted/60">-</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-text-muted">
+                        <div className="flex items-center gap-1.5">
+                          <Clock size={14} />
+                          {new Date(row.executed_at).toLocaleString()}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <button
+                          type="button"
+                          className="text-text-muted hover:text-white transition-colors"
+                          title="View Logs (Not Implemented)"
+                        >
+                          <FileJson size={18} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Compare section */}
+      {activeSection === 'compare' && (
+        <div className="space-y-6">
+          {/* Baseline selectors */}
+          <div className="glass-panel p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Compare Baselines</h3>
+            <div className="flex flex-wrap gap-6 items-end">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-text-muted uppercase tracking-wider">Baseline A (blue)</label>
+                <select
+                  value={baselineAId}
+                  onChange={e => setBaselineAId(e.target.value)}
+                  title="Select Baseline A"
+                  className="bg-surface-highlight border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+                >
+                  <option value="">— select —</option>
+                  {baselineIds.map(id => (
+                    <option key={id} value={id}>{id}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-text-muted uppercase tracking-wider">Baseline B (purple)</label>
+                <select
+                  value={baselineBId}
+                  onChange={e => setBaselineBId(e.target.value)}
+                  title="Select Baseline B"
+                  className="bg-surface-highlight border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-secondary/50"
+                >
+                  <option value="">— select —</option>
+                  {baselineIds.map(id => (
+                    <option key={id} value={id}>{id}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="ml-auto">
+                <button
+                  type="button"
+                  onClick={() => window.open(getExportCsvUrl(undefined, baselineAId || undefined), '_blank')}
+                  className="flex items-center gap-2 btn-ghost text-sm"
+                  disabled={!baselineAId}
+                >
+                  <Download size={14} />
+                  Export A
+                </button>
+              </div>
             </div>
           </div>
 
-          {diffError && <p className="text-error text-sm">{diffError}</p>}
+          {/* Chart */}
+          {baselineAId && baselineBId ? (
+            <div className="glass-panel p-6">
+              <h4 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-4">
+                Average Metrics — {baselineAId} vs {baselineBId}
+              </h4>
+              <MetricsChart
+                baselineA={baselineAData}
+                baselineB={baselineBData}
+                metricKeys={CHART_METRIC_KEYS}
+                labelA={baselineAId}
+                labelB={baselineBId}
+              />
+              <p className="text-xs text-text-muted mt-3">
+                Delta labels on purple bars: positive (red) = B costs more, negative (green) = B is cheaper.
+              </p>
+            </div>
+          ) : (
+            <div className="glass-panel p-12 text-center text-text-muted">
+              Select two baselines above to see the comparison chart.
+            </div>
+          )}
 
-          {diffResult && (
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-sm">
+          {/* Diff table */}
+          {baselineAId && baselineBId && (
+            <div className="glass-panel overflow-hidden">
+              <table className="w-full text-left border-collapse text-sm">
                 <thead>
-                  <tr className="border-b border-white/10 text-text-muted text-xs uppercase tracking-wider">
-                    <th className="text-left p-3">Metric</th>
-                    <th className="text-right p-3">{diffResult.baseline_a.id ?? diffA}</th>
-                    <th className="text-right p-3">{diffResult.baseline_b.id ?? diffB}</th>
-                    <th className="text-right p-3">Delta</th>
-                    <th className="text-right p-3">Change</th>
+                  <tr className="border-b border-white/5 bg-surface-highlight/30 text-xs uppercase tracking-wider text-text-muted">
+                    <th className="p-4 font-semibold">Metric</th>
+                    <th className="p-4 font-semibold text-primary">{baselineAId}</th>
+                    <th className="p-4 font-semibold text-secondary">{baselineBId}</th>
+                    <th className="p-4 font-semibold">Delta</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {['total_tokens', 'input_tokens', 'output_tokens', 'step_count', 'retry_count'].map(key => {
-                    const va = Number(diffResult.baseline_a[key] ?? 0);
-                    const vb = Number(diffResult.baseline_b[key] ?? 0);
-                    const delta = Number(diffResult.delta[key] ?? 0);
-                    const pct = Number(diffResult.delta[`${key}_pct`] ?? 0);
-                    const improved = delta < 0;
+                  {CHART_METRIC_KEYS.map(key => {
+                    const a = baselineAData[key] ?? 0;
+                    const b = baselineBData[key] ?? 0;
+                    const delta = a === 0 ? null : ((b - a) / Math.abs(a)) * 100;
+                    const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
                     return (
-                      <tr key={key} className="hover:bg-white/5">
-                        <td className="p-3 text-white font-medium">{key.replace(/_/g, ' ')}</td>
-                        <td className="p-3 text-right font-mono text-text-muted">{va.toFixed(1)}</td>
-                        <td className="p-3 text-right font-mono text-text-muted">{vb.toFixed(1)}</td>
-                        <td className={`p-3 text-right font-mono font-bold ${improved ? 'text-success' : delta > 0 ? 'text-error' : 'text-text-muted'}`}>
-                          <span className="inline-flex items-center gap-1">
-                            {improved ? <ArrowDownRight size={14} /> : delta > 0 ? <ArrowUpRight size={14} /> : null}
-                            {delta > 0 ? '+' : ''}{delta.toFixed(1)}
-                          </span>
-                        </td>
-                        <td className={`p-3 text-right font-mono text-xs ${improved ? 'text-success' : delta > 0 ? 'text-error' : 'text-text-muted'}`}>
-                          {pct > 0 ? '+' : ''}{pct.toFixed(1)}%
+                      <tr key={key} className="hover:bg-white/5 transition-colors">
+                        <td className="p-4 text-text-muted">{label}</td>
+                        <td className="p-4 font-mono text-primary">{a.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
+                        <td className="p-4 font-mono text-secondary">{b.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
+                        <td className="p-4 font-mono">
+                          {delta === null ? (
+                            <span className="text-text-muted">—</span>
+                          ) : (
+                            <span className={delta < 0 ? 'text-success' : delta > 0 ? 'text-error' : 'text-text-muted'}>
+                              {delta >= 0 ? '+' : ''}{delta.toFixed(1)}%
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -207,105 +385,75 @@ export default function LedgerPage() {
         </div>
       )}
 
-      {/* Execution History Table */}
-      <div className="glass-panel overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-white/5 bg-surface-highlight/30 text-xs uppercase tracking-wider text-text-muted">
-                <th className="p-4 font-semibold">Status</th>
-                <th className="p-4 font-semibold">Task ID</th>
-                <th className="p-4 font-semibold">Baseline</th>
-                <th className="p-4 font-semibold">Tokens</th>
-                <th className="p-4 font-semibold">Steps</th>
-                <th className="p-4 font-semibold">SUS</th>
-                <th className="p-4 font-semibold">Executed At</th>
-                <th className="p-4 font-semibold">Details</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5 text-sm">
-              {loading ? (
-                <tr><td colSpan={8} className="p-8 text-center text-text-muted">Loading ledger...</td></tr>
-              ) : history.length === 0 ? (
-                <tr><td colSpan={8} className="p-8 text-center text-text-muted">No records found. Run a task first.</td></tr>
-              ) : (
-                history.map(row => (
-                  <React.Fragment key={row.id}>
-                    <tr className="group hover:bg-white/5 transition-colors">
-                      <td className="p-4">
-                        {row.success ? (
-                          <div className="flex items-center gap-2 text-success">
-                            <CheckCircle2 size={18} /> Success
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 text-error" title={row.failure_reason || ''}>
-                            <XCircle size={18} /> Failed
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-4 font-medium text-white font-mono">{row.task_id}</td>
-                      <td className="p-4 text-text-muted">{row.baseline_id}</td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-1.5 font-mono text-primary">
-                          <Zap size={14} /> {(row.total_tokens ?? 0).toLocaleString()}
-                        </div>
-                      </td>
-                      <td className="p-4 text-text-muted font-mono">{row.step_count}</td>
-                      <td className="p-4 text-text-muted">
-                        {row.metrics?.sus_inspired_score != null ? (
-                          <span className="text-primary font-semibold">
-                            {Number(row.metrics.sus_inspired_score).toFixed(1)}
-                          </span>
-                        ) : '-'}
-                      </td>
-                      <td className="p-4 text-text-muted">
-                        <div className="flex items-center gap-1.5">
-                          <Clock size={14} />
-                          {new Date(row.executed_at).toLocaleString()}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <button
-                          type="button"
-                          title="Toggle details"
-                          onClick={() => setExpandedRow(expandedRow === row.id ? null : row.id)}
-                          className="text-text-muted hover:text-white transition-colors"
-                        >
-                          <FileJson size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                    {expandedRow === row.id && (
-                      <tr key={`${row.id}-detail`}>
-                        <td colSpan={8} className="p-4 bg-surface-highlight/20">
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div>
-                              <span className="text-text-muted text-xs block">Input Tokens</span>
-                              <span className="font-mono text-white">{(row.input_tokens ?? 0).toLocaleString()}</span>
-                            </div>
-                            <div>
-                              <span className="text-text-muted text-xs block">Output Tokens</span>
-                              <span className="font-mono text-white">{(row.output_tokens ?? 0).toLocaleString()}</span>
-                            </div>
-                            <div>
-                              <span className="text-text-muted text-xs block">Retry Count</span>
-                              <span className="font-mono text-white">{row.retry_count}</span>
-                            </div>
-                            <div>
-                              <span className="text-text-muted text-xs block">Failure Reason</span>
-                              <span className="font-mono text-white">{row.failure_reason || 'N/A'}</span>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ))
-              )}
-            </tbody>
-          </table>
+      {/* Trends section */}
+      {activeSection === 'trends' && (
+        <div className="space-y-6">
+          <div className="glass-panel p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Metric Trends Over Time</h3>
+            <div className="flex flex-wrap gap-6 items-end">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-text-muted uppercase tracking-wider">Task</label>
+                <select
+                  value={selectedTaskId}
+                  onChange={e => setSelectedTaskId(e.target.value)}
+                  title="Select Task"
+                  className="bg-surface-highlight border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+                >
+                  <option value="">— select task —</option>
+                  {taskIds.map(id => (
+                    <option key={id} value={id}>{id}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-text-muted uppercase tracking-wider">Metric</label>
+                <select
+                  value={trendMetric}
+                  onChange={e => setTrendMetric(e.target.value)}
+                  title="Select Metric"
+                  className="bg-surface-highlight border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+                >
+                  {TREND_METRIC_OPTIONS.map(opt => (
+                    <option key={opt.key} value={opt.key}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="ml-auto flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={!selectedTaskId}
+                  className="flex items-center gap-2 btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={selectedTaskId ? `Export ${selectedTaskId} as CSV` : 'Select a task first'}
+                >
+                  <Download size={14} />
+                  Export Task CSV
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {selectedTaskId ? (
+            trendLoading ? (
+              <div className="glass-panel p-12 text-center text-text-muted">Loading trend data...</div>
+            ) : trendRuns.length === 0 ? (
+              <div className="glass-panel p-12 text-center text-text-muted">No runs found for this task.</div>
+            ) : (
+              <div className="glass-panel p-6">
+                <h4 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-1">
+                  {TREND_METRIC_OPTIONS.find(o => o.key === trendMetric)?.label ?? trendMetric} — {selectedTaskId}
+                </h4>
+                <p className="text-xs text-text-muted mb-4">
+                  {trendRuns.length} run{trendRuns.length !== 1 ? 's' : ''} — dots colored by success (cyan) / failure (red)
+                </p>
+                <TrendChart runs={trendRuns} metricKey={trendMetric} />
+              </div>
+            )
+          ) : (
+            <div className="glass-panel p-12 text-center text-text-muted">Select a task above to see its trend.</div>
+          )}
         </div>
-      </div>
+      )}
     </DashboardLayout>
   );
 }

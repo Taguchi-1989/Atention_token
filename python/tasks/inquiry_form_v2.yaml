@@ -1,0 +1,9 @@
+task_id: INQUIRY_FORM_V2
+description: サポートへの問い合わせフォーム送信（改善版 — 最小限・明確なフォーム）
+start_condition: support_page_loaded
+goal_condition: inquiry_sent_message_visible
+input_data:
+  user_name: "Test User"
+  user_email: "test@example.com"
+  category: "Technical Support"
+  message: "Login fails with error code 503."
