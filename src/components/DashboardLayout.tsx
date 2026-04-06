@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Play, History, Settings, Zap, ListChecks } from 'lucide-react';
+import { LayoutDashboard, Play, History, Settings, Zap, ListChecks, FlaskConical } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export default function DashboardLayout({
@@ -29,6 +29,7 @@ export default function DashboardLayout({
           <NavItem href="/tasks" icon={<Play size={20} />} label="タスク" />
           <NavItem href="/sus" icon={<ListChecks size={20} />} label="SUS 評価" />
           <NavItem href="/ledger" icon={<History size={20} />} label="実行台帳" />
+          <NavItem href="/results" icon={<FlaskConical size={20} />} label="実験結果" />
           <NavItem href="/settings" icon={<Settings size={20} />} label="設定" />
         </nav>
 
