@@ -1,0 +1,8 @@
+task_id: DEMO_SAUCEDEMO_LOGIN
+description: SauceDemo のログインフォームにID/PWを入力してログインする（テスト用ECサイト）
+url: https://www.saucedemo.com/
+start_condition: page_loaded
+goal_condition: logged_in
+input_data:
+  user-name: standard_user
+  password: secret_sauce

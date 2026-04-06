@@ -1,0 +1,11 @@
+task_id: DEMO_DEMOQA_FORM
+description: DemoQA の Practice Form に個人情報を入力して送信する（複雑なフォーム）
+url: https://demoqa.com/automation-practice-form
+start_condition: page_loaded
+goal_condition: form_submitted
+input_data:
+  firstName: Taro
+  lastName: Taguchi
+  userEmail: test@example.com
+  userNumber: "0901234567"
+  currentAddress: Tokyo, Japan

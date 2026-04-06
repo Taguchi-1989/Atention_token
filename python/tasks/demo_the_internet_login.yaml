@@ -1,0 +1,8 @@
+task_id: DEMO_THE_INTERNET_LOGIN
+description: The Internet (Heroku) のログインページに認証情報を入力してログインする
+url: https://the-internet.herokuapp.com/login
+start_condition: page_loaded
+goal_condition: logged_in
+input_data:
+  username: tomsmith
+  password: SuperSecretPassword!

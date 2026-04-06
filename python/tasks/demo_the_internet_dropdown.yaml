@@ -1,0 +1,7 @@
+task_id: DEMO_THE_INTERNET_DROPDOWN
+description: The Internet のドロップダウンページで Option 2 を選択する
+url: https://the-internet.herokuapp.com/dropdown
+start_condition: page_loaded
+goal_condition: option_selected
+input_data:
+  dropdown: "2"

@@ -1,0 +1,6 @@
+task_id: DEMO_THE_INTERNET_CHECKBOXES
+description: The Internet のチェックボックスページで両方のチェックボックスをONにする
+url: https://the-internet.herokuapp.com/checkboxes
+start_condition: page_loaded
+goal_condition: both_checked
+input_data: {}
