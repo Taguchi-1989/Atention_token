@@ -34,3 +34,9 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+.claude/worktrees/
+.playwright-mcp/
+.omc/
+*.db-shm
+*.db-wal
+tsconfig.tsbuildinfo
