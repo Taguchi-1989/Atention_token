@@ -1,0 +1,63 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - img [ref=e6]
+        - heading "Ledger" [level=1] [ref=e8]
+      - navigation [ref=e9]:
+        - link "概要" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e12]
+          - generic [ref=e17]: 概要
+        - link "タスク" [ref=e18] [cursor=pointer]:
+          - /url: /tasks
+          - img [ref=e20]
+          - generic [ref=e22]: タスク
+        - link "SUS 評価" [ref=e23] [cursor=pointer]:
+          - /url: /sus
+          - img [ref=e25]
+          - generic [ref=e28]: SUS 評価
+        - link "実行台帳" [ref=e29] [cursor=pointer]:
+          - /url: /ledger
+          - img [ref=e31]
+          - generic [ref=e35]: 実行台帳
+        - link "設定" [ref=e36] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e38]
+          - generic [ref=e41]: 設定
+      - generic [ref=e42]: v0.1.0 (Local MVP)
+    - main [ref=e43]:
+      - generic [ref=e44]:
+        - generic [ref=e45]:
+          - generic [ref=e46]:
+            - heading "実行台帳" [level=2] [ref=e47]
+            - paragraph [ref=e48]: エージェント実行の監査証跡とコストメトリクス
+          - generic [ref=e49]:
+            - button "全件CSV出力" [ref=e50] [cursor=pointer]:
+              - img [ref=e51]
+              - text: 全件CSV出力
+            - button "更新" [ref=e54] [cursor=pointer]
+        - generic [ref=e55]:
+          - button "台帳" [ref=e56] [cursor=pointer]:
+            - img [ref=e57]
+            - text: 台帳
+          - button "比較" [ref=e62] [cursor=pointer]:
+            - img [ref=e63]
+            - text: 比較
+          - button "トレンド" [ref=e64] [cursor=pointer]:
+            - img [ref=e65]
+            - text: トレンド
+        - table [ref=e70]:
+          - rowgroup [ref=e71]:
+            - row "状態 タスクID ベースライン コスト (トークン) SUS 実行日時 詳細" [ref=e72]:
+              - columnheader "状態" [ref=e73]
+              - columnheader "タスクID" [ref=e74]
+              - columnheader "ベースライン" [ref=e75]
+              - columnheader "コスト (トークン)" [ref=e76]
+              - columnheader "SUS" [ref=e77]
+              - columnheader "実行日時" [ref=e78]
+              - columnheader "詳細" [ref=e79]
+          - rowgroup [ref=e80]:
+            - row "台帳を読み込み中..." [ref=e81]:
+              - cell "台帳を読み込み中..." [ref=e82]
+  - alert [ref=e83]

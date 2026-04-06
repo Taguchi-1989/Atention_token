@@ -1,0 +1,104 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - img [ref=e6]
+        - heading "Ledger" [level=1] [ref=e8]
+      - navigation [ref=e9]:
+        - link "Overview" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e12]
+          - generic [ref=e17]: Overview
+        - link "Tasks" [ref=e18] [cursor=pointer]:
+          - /url: /tasks
+          - img [ref=e20]
+          - generic [ref=e22]: Tasks
+        - link "SUS Survey" [ref=e23] [cursor=pointer]:
+          - /url: /sus
+          - img [ref=e25]
+          - generic [ref=e28]: SUS Survey
+        - link "Ledger" [ref=e29] [cursor=pointer]:
+          - /url: /ledger
+          - img [ref=e31]
+          - generic [ref=e35]: Ledger
+        - link "Settings" [ref=e36] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e38]
+          - generic [ref=e41]: Settings
+      - generic [ref=e42]: v0.1.0 (Local MVP)
+    - main [ref=e43]:
+      - generic [ref=e45]:
+        - generic [ref=e46]:
+          - generic:
+            - img
+          - generic [ref=e47]:
+            - generic [ref=e48]: System Operational
+            - heading "AttentionLedger" [level=2] [ref=e52]
+            - paragraph [ref=e53]:
+              - text: Quantify software cognitive load using autonomous AI agents.
+              - text: Measure attention cost in tokens, optimize for human efficiency.
+            - generic [ref=e54]:
+              - link "Deploy Agent" [ref=e55] [cursor=pointer]:
+                - /url: /tasks
+                - text: Deploy Agent
+                - img [ref=e56]
+              - link "View Audit Log" [ref=e59] [cursor=pointer]:
+                - /url: /ledger
+        - generic [ref=e60]:
+          - generic [ref=e61]:
+            - img [ref=e64]
+            - generic [ref=e68]: "7"
+            - generic [ref=e69]: Task Scenarios
+            - generic [ref=e70]: YAML Definitions
+          - generic [ref=e71]:
+            - img [ref=e74]
+            - generic [ref=e76]: "0"
+            - generic [ref=e77]: Total Executions
+            - generic [ref=e78]: 0% success rate
+          - generic [ref=e79]:
+            - img [ref=e82]
+            - generic [ref=e87]: "1"
+            - generic [ref=e88]: Baselines
+            - generic [ref=e89]: Registered
+          - generic [ref=e90]:
+            - img [ref=e93]
+            - generic [ref=e96]: "0"
+            - generic [ref=e97]: Total Tokens
+            - generic [ref=e98]: Attention Cost
+        - generic [ref=e99]:
+          - generic [ref=e100]:
+            - generic [ref=e101]:
+              - heading "Recent Activity" [level=3] [ref=e102]:
+                - img [ref=e103]
+                - text: Recent Activity
+              - generic [ref=e105]:
+                - button "Refresh data" [ref=e106] [cursor=pointer]:
+                  - img [ref=e107]
+                - link "View All" [ref=e112] [cursor=pointer]:
+                  - /url: /ledger
+            - generic [ref=e114]:
+              - text: No executions yet.
+              - link "Run a task" [ref=e115] [cursor=pointer]:
+                - /url: /tasks
+              - text: to get started.
+          - generic [ref=e117]:
+            - heading "Quick Access" [level=3] [ref=e118]
+            - paragraph [ref=e119]: Navigate to key areas of the system.
+            - generic [ref=e120]:
+              - link "Run Task Analysis Execute agent on a scenario" [ref=e121] [cursor=pointer]:
+                - /url: /tasks
+                - generic [ref=e122]: Run Task Analysis
+                - generic [ref=e123]: Execute agent on a scenario
+              - link "SUS Survey Submit usability evaluation" [ref=e124] [cursor=pointer]:
+                - /url: /sus
+                - generic [ref=e125]: SUS Survey
+                - generic [ref=e126]: Submit usability evaluation
+              - link "Execution Ledger Review audit trail" [ref=e127] [cursor=pointer]:
+                - /url: /ledger
+                - generic [ref=e128]: Execution Ledger
+                - generic [ref=e129]: Review audit trail
+              - link "Settings Configure LLM connection" [ref=e130] [cursor=pointer]:
+                - /url: /settings
+                - generic [ref=e131]: Settings
+                - generic [ref=e132]: Configure LLM connection
+  - alert [ref=e133]

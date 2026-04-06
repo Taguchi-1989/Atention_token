@@ -1,0 +1,133 @@
+- generic [ref=e1]:
+  - alert [ref=e144]
+  - generic [ref=e145]:
+    - complementary [ref=e146]:
+      - generic [ref=e147]:
+        - img [ref=e149]
+        - heading "Ledger" [level=1] [ref=e151]
+      - navigation [ref=e152]:
+        - link "概要" [ref=e153] [cursor=pointer]:
+          - /url: /
+          - img [ref=e155]
+          - generic [ref=e160]: 概要
+        - link "タスク" [ref=e161] [cursor=pointer]:
+          - /url: /tasks
+          - img [ref=e163]
+          - generic [ref=e165]: タスク
+        - link "SUS 評価" [ref=e166] [cursor=pointer]:
+          - /url: /sus
+          - img [ref=e168]
+          - generic [ref=e171]: SUS 評価
+        - link "実行台帳" [ref=e172] [cursor=pointer]:
+          - /url: /ledger
+          - img [ref=e174]
+          - generic [ref=e178]: 実行台帳
+        - link "設定" [ref=e179] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e181]
+          - generic [ref=e184]: 設定
+      - generic [ref=e185]: v0.1.0 (Local MVP)
+    - main [ref=e186]:
+      - generic [ref=e187]:
+        - generic [ref=e188]:
+          - generic [ref=e189]:
+            - heading "実行台帳" [level=2] [ref=e190]
+            - paragraph [ref=e191]: エージェント実行の監査証跡とコストメトリクス
+          - generic [ref=e192]:
+            - button "全件CSV出力" [ref=e193] [cursor=pointer]:
+              - img [ref=e194]
+              - text: 全件CSV出力
+            - button "更新" [ref=e197] [cursor=pointer]
+        - generic [ref=e198]:
+          - button "台帳" [ref=e199] [cursor=pointer]:
+            - img [ref=e200]
+            - text: 台帳
+          - button "比較" [active] [ref=e205] [cursor=pointer]:
+            - img [ref=e206]
+            - text: 比較
+          - button "トレンド" [ref=e207] [cursor=pointer]:
+            - img [ref=e208]
+            - text: トレンド
+        - generic [ref=e328]:
+          - generic [ref=e329]:
+            - heading "ベースライン比較" [level=3] [ref=e330]
+            - generic [ref=e331]:
+              - generic [ref=e332]:
+                - generic [ref=e333]: ベースライン A (青)
+                - combobox "Select Baseline A" [ref=e334]:
+                  - option "— select —"
+                  - option "BL-DEMO-AFTER" [selected]
+                  - option "BL-DEMO-BEFORE"
+              - generic [ref=e335]:
+                - generic [ref=e336]: ベースライン B (紫)
+                - combobox "Select Baseline B" [ref=e337]:
+                  - option "— select —"
+                  - option "BL-DEMO-AFTER"
+                  - option "BL-DEMO-BEFORE" [selected]
+              - button "Export A" [ref=e339] [cursor=pointer]:
+                - img [ref=e340]
+                - text: Export A
+          - generic [ref=e343]:
+            - heading "Average Metrics — BL-DEMO-AFTER vs BL-DEMO-BEFORE" [level=4] [ref=e344]
+            - generic [ref=e347]:
+              - list [ref=e349]:
+                - listitem [ref=e350]:
+                  - img "BL-DEMO-AFTER legend icon" [ref=e351]
+                  - generic [ref=e353]: BL-DEMO-AFTER
+                - listitem [ref=e354]:
+                  - img "BL-DEMO-BEFORE legend icon" [ref=e355]
+                  - generic [ref=e357]: BL-DEMO-BEFORE
+              - application [ref=e358]:
+                - generic [ref=e363]:
+                  - generic [ref=e364]:
+                    - generic [ref=e366]: Total Tokens
+                    - generic [ref=e368]: Input Tokens
+                    - generic [ref=e370]: Output Tokens
+                    - generic [ref=e372]: Steps
+                    - generic [ref=e374]: Retries
+                  - generic [ref=e375]:
+                    - generic [ref=e377]: "0"
+                    - generic [ref=e379]: "200"
+                    - generic [ref=e381]: "400"
+                    - generic [ref=e383]: "600"
+                    - generic [ref=e385]: "800"
+            - paragraph [ref=e386]: "Delta labels on purple bars: positive (red) = B costs more, negative (green) = B is cheaper."
+          - table [ref=e388]:
+            - rowgroup [ref=e389]:
+              - row "Metric BL-DEMO-AFTER BL-DEMO-BEFORE Delta" [ref=e390]:
+                - columnheader "Metric" [ref=e391]
+                - columnheader "BL-DEMO-AFTER" [ref=e392]
+                - columnheader "BL-DEMO-BEFORE" [ref=e393]
+                - columnheader "Delta" [ref=e394]
+            - rowgroup [ref=e395]:
+              - row "Total Tokens 645 645 +0.0%" [ref=e396]:
+                - cell "Total Tokens" [ref=e397]
+                - cell "645" [ref=e398]
+                - cell "645" [ref=e399]
+                - cell "+0.0%" [ref=e400]:
+                  - generic [ref=e401]: +0.0%
+              - row "Input Tokens 450 450 +0.0%" [ref=e402]:
+                - cell "Input Tokens" [ref=e403]
+                - cell "450" [ref=e404]
+                - cell "450" [ref=e405]
+                - cell "+0.0%" [ref=e406]:
+                  - generic [ref=e407]: +0.0%
+              - row "Output Tokens 195 195 +0.0%" [ref=e408]:
+                - cell "Output Tokens" [ref=e409]
+                - cell "195" [ref=e410]
+                - cell "195" [ref=e411]
+                - cell "+0.0%" [ref=e412]:
+                  - generic [ref=e413]: +0.0%
+              - row "Step Count 6 6 +0.0%" [ref=e414]:
+                - cell "Step Count" [ref=e415]
+                - cell "6" [ref=e416]
+                - cell "6" [ref=e417]
+                - cell "+0.0%" [ref=e418]:
+                  - generic [ref=e419]: +0.0%
+              - row "Retry Count 5 5 +0.0%" [ref=e420]:
+                - cell "Retry Count" [ref=e421]
+                - cell "5" [ref=e422]
+                - cell "5" [ref=e423]
+                - cell "+0.0%" [ref=e424]:
+                  - generic [ref=e425]: +0.0%
+  - generic [ref=e426]: "0"

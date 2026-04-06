@@ -1,0 +1,144 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - img [ref=e6]
+        - heading "Ledger" [level=1] [ref=e8]
+      - navigation [ref=e9]:
+        - link "概要" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e12]
+          - generic [ref=e17]: 概要
+        - link "タスク" [ref=e18] [cursor=pointer]:
+          - /url: /tasks
+          - img [ref=e20]
+          - generic [ref=e22]: タスク
+        - link "SUS 評価" [ref=e23] [cursor=pointer]:
+          - /url: /sus
+          - img [ref=e25]
+          - generic [ref=e28]: SUS 評価
+        - link "実行台帳" [ref=e29] [cursor=pointer]:
+          - /url: /ledger
+          - img [ref=e31]
+          - generic [ref=e35]: 実行台帳
+        - link "設定" [ref=e36] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e38]
+          - generic [ref=e41]: 設定
+      - generic [ref=e42]: v0.1.0 (Local MVP)
+    - main [ref=e43]:
+      - generic [ref=e45]:
+        - generic [ref=e46]:
+          - generic:
+            - img
+          - generic [ref=e47]:
+            - generic [ref=e48]: システム稼働中
+            - heading "AttentionLedger" [level=2] [ref=e52]
+            - paragraph [ref=e53]:
+              - text: AIエージェントを使って、ソフトウェアの認知負荷を定量化。
+              - text: トークン消費量で注意力コストを測定し、人間の効率を最適化します。
+            - generic [ref=e54]:
+              - link "タスク実行" [ref=e55] [cursor=pointer]:
+                - /url: /tasks
+                - text: タスク実行
+                - img [ref=e56]
+              - link "実行履歴を見る" [ref=e59] [cursor=pointer]:
+                - /url: /ledger
+        - generic [ref=e61]:
+          - generic [ref=e62]:
+            - heading "ワンクリック A/B 比較デモ" [level=3] [ref=e63]:
+              - img [ref=e64]
+              - text: ワンクリック A/B 比較デモ
+            - paragraph [ref=e65]: v1（悪いUI）と v2（良いUI）をAIエージェントに操作させ、トークン消費量の差を比較します。LLM不要のモックモードで動作します。
+          - button "デモを実行" [ref=e67] [cursor=pointer]:
+            - img [ref=e68]
+            - text: デモを実行
+        - generic [ref=e71]:
+          - generic [ref=e72]:
+            - img [ref=e75]
+            - generic [ref=e79]: "7"
+            - generic [ref=e80]: タスクシナリオ
+            - generic [ref=e81]: YAML 定義数
+          - generic [ref=e82]:
+            - img [ref=e85]
+            - generic [ref=e87]: "14"
+            - generic [ref=e88]: 総実行回数
+            - generic [ref=e89]: 成功率 100%
+          - generic [ref=e90]:
+            - img [ref=e93]
+            - generic [ref=e98]: "1"
+            - generic [ref=e99]: ベースライン
+            - generic [ref=e100]: 登録済み
+          - generic [ref=e101]:
+            - img [ref=e104]
+            - generic [ref=e107]: 9,030
+            - generic [ref=e108]: 総トークン数
+            - generic [ref=e109]: 注意力コスト
+        - generic [ref=e110]:
+          - generic [ref=e111]:
+            - generic [ref=e112]:
+              - heading "最近のアクティビティ" [level=3] [ref=e113]:
+                - img [ref=e114]
+                - text: 最近のアクティビティ
+              - generic [ref=e116]:
+                - button "データを更新" [ref=e117] [cursor=pointer]:
+                  - img [ref=e118]
+                - link "すべて見る" [ref=e123] [cursor=pointer]:
+                  - /url: /ledger
+            - generic [ref=e124]:
+              - generic [ref=e125]:
+                - generic [ref=e128]:
+                  - generic [ref=e129]: INQUIRY_FORM_V2
+                  - generic [ref=e130]: たった今
+                - generic [ref=e131]:
+                  - generic [ref=e132]: 645 tok
+                  - generic [ref=e133]: 成功
+              - generic [ref=e134]:
+                - generic [ref=e137]:
+                  - generic [ref=e138]: SHOPPING_CART_V2
+                  - generic [ref=e139]: たった今
+                - generic [ref=e140]:
+                  - generic [ref=e141]: 645 tok
+                  - generic [ref=e142]: 成功
+              - generic [ref=e143]:
+                - generic [ref=e146]:
+                  - generic [ref=e147]: EXPENSE_INPUT_V2
+                  - generic [ref=e148]: たった今
+                - generic [ref=e149]:
+                  - generic [ref=e150]: 645 tok
+                  - generic [ref=e151]: 成功
+              - generic [ref=e152]:
+                - generic [ref=e155]:
+                  - generic [ref=e156]: INQUIRY_FORM_V1
+                  - generic [ref=e157]: たった今
+                - generic [ref=e158]:
+                  - generic [ref=e159]: 645 tok
+                  - generic [ref=e160]: 成功
+              - generic [ref=e161]:
+                - generic [ref=e164]:
+                  - generic [ref=e165]: SHOPPING_CART_V1
+                  - generic [ref=e166]: たった今
+                - generic [ref=e167]:
+                  - generic [ref=e168]: 645 tok
+                  - generic [ref=e169]: 成功
+          - generic [ref=e171]:
+            - heading "クイックアクセス" [level=3] [ref=e172]
+            - paragraph [ref=e173]: 主要な機能へすぐにアクセス
+            - generic [ref=e174]:
+              - link "タスク実行 エージェントでシナリオを実行" [ref=e175] [cursor=pointer]:
+                - /url: /tasks
+                - generic [ref=e176]: タスク実行
+                - generic [ref=e177]: エージェントでシナリオを実行
+              - link "SUS 評価 ユーザビリティ評価を送信" [ref=e178] [cursor=pointer]:
+                - /url: /sus
+                - generic [ref=e179]: SUS 評価
+                - generic [ref=e180]: ユーザビリティ評価を送信
+              - link "実行台帳 実行履歴と監査ログ" [ref=e181] [cursor=pointer]:
+                - /url: /ledger
+                - generic [ref=e182]: 実行台帳
+                - generic [ref=e183]: 実行履歴と監査ログ
+              - link "設定 LLM 接続の設定" [ref=e184] [cursor=pointer]:
+                - /url: /settings
+                - generic [ref=e185]: 設定
+                - generic [ref=e186]: LLM 接続の設定
+  - alert [ref=e187]
