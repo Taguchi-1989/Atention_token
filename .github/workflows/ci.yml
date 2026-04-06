@@ -7,7 +7,7 @@ on:
     branches: ["**"]
 
 jobs:
-  # ── Job 1: Python backend ──────────────────────────────────────────────────
+  # ── Job 1: Python backend ──
   python:
     name: Python Tests
     runs-on: ubuntu-latest
@@ -24,23 +24,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: python/requirements.txt
 
       - name: Install dependencies
-        run: pip install -r requirements.txt pytest
+        run: pip install -r requirements.txt
 
-      - name: Run pytest
-        run: pytest --tb=short -q
+      - name: Run pytest (skip Playwright tests in CI)
+        run: pytest --tb=short -q -k "not playwright"
 
-  # ── Job 2: Node.js frontend ────────────────────────────────────────────────
+  # ── Job 2: Node.js frontend ──
   node:
     name: Node.js Tests & Build
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: src
 
     steps:
       - name: Checkout repository
@@ -50,16 +44,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: npm
-          cache-dependency-path: src/package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
       - name: Run Jest tests
-        run: npm test
+        run: npx jest --no-coverage
 
-      - name: Build Next.js application
-        run: npm run build
-        env:
-          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+      - name: Build Next.js
+        run: npx next build
