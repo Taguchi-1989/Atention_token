@@ -25,12 +25,13 @@ COPY python/ ./python/
 COPY --from=frontend-build /app/out ./out/
 
 # Set environment
+ENV PYTHONPATH=/app/python
 ENV ATTENTION_LEDGER_STATIC_DIR=/app/out
 ENV ATTENTION_LEDGER_TASKS_DIR=/app/python/tasks
 ENV ATTENTION_LEDGER_DB_PATH=/app/data/ledger.db
 
-# Persist DB
-VOLUME /app/data
+# Ensure data directory exists
+RUN mkdir -p /app/data
 
 EXPOSE 8000
 
