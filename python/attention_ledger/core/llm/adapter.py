@@ -1,6 +1,7 @@
+import base64
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import List, Optional
 import httpx
 from .models import LLMResponse, TokenUsage
 from .config import settings
@@ -10,7 +11,8 @@ logger = logging.getLogger(__name__)
 
 class LLMAdapter(ABC):
     @abstractmethod
-    async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> LLMResponse:
+    async def generate(self, prompt: str, system_prompt: Optional[str] = None,
+                       images: Optional[List[bytes]] = None) -> LLMResponse:
         pass
 
     def get_token_usage_cost(self, usage: TokenUsage) -> float:
@@ -24,7 +26,8 @@ class OllamaAdapter(LLMAdapter):
         self.temperature = temperature if temperature is not None else settings.temperature
         self._client = httpx.AsyncClient(timeout=60.0)
 
-    async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> LLMResponse:
+    async def generate(self, prompt: str, system_prompt: Optional[str] = None,
+                       images: Optional[List[bytes]] = None) -> LLMResponse:
         url = f"{self.base_url}/api/generate"
 
         payload = {
@@ -35,6 +38,8 @@ class OllamaAdapter(LLMAdapter):
         }
         if system_prompt:
             payload["system"] = system_prompt
+        if images:
+            payload["images"] = [base64.b64encode(img).decode("utf-8") for img in images]
 
         response = await self._client.post(url, json=payload)
         response.raise_for_status()

@@ -558,6 +558,62 @@ def export_csv(
 
 
 # ═══════════════════════════════════════════
+# Batch Run (same task N times for statistics)
+# ═══════════════════════════════════════════
+
+class BatchRunRequest(BaseModel):
+    baseline_id: str = Field(..., min_length=1, max_length=128, pattern=r'^[a-zA-Z0-9_\-]+$')
+    mock: bool = False
+    runs: int = Field(5, ge=1, le=20)
+    max_steps: Optional[int] = Field(None, ge=1, le=_MAX_STEPS_LIMIT)
+
+
+@api.post("/tasks/{task_id}/batch")
+async def batch_run(task_id: str, payload: BatchRunRequest):
+    task_file = _resolve_task_file(task_id)
+    if not task_file.exists():
+        raise HTTPException(status_code=404, detail=f"Task not found: {task_id}")
+
+    task = TaskLoader.load_from_file(str(task_file))
+    store = _store()
+    results = []
+
+    for i in range(payload.runs):
+        agent = _make_agent(payload.baseline_id, payload.mock)
+        engine = ExecutionEngine(agent)
+        result = await engine.run_task(task, payload.baseline_id, max_steps=payload.max_steps or 20)
+        store.save_record(result)
+        results.append({
+            "run": i + 1,
+            "success": result.success,
+            "output_tokens": result.metrics.output_tokens,
+            "total_tokens": result.metrics.total_tokens,
+            "step_count": result.metrics.step_count,
+            "retry_count": result.metrics.retry_count,
+            "cognitive_load_score": result.metrics.cognitive_load_score,
+        })
+
+    # Compute stats
+    scores = [r["cognitive_load_score"] for r in results if r["cognitive_load_score"] is not None]
+    tokens = [r["output_tokens"] for r in results]
+    avg_score = sum(scores) / len(scores) if scores else 0
+    avg_tokens = sum(tokens) / len(tokens) if tokens else 0
+
+    return {
+        "task_id": task_id,
+        "baseline_id": payload.baseline_id,
+        "runs": len(results),
+        "results": results,
+        "stats": {
+            "avg_cognitive_load": round(avg_score, 1),
+            "avg_output_tokens": round(avg_tokens, 1),
+            "min_score": min(scores) if scores else 0,
+            "max_score": max(scores) if scores else 0,
+        },
+    }
+
+
+# ═══════════════════════════════════════════
 # One-Click Demo
 # ═══════════════════════════════════════════
 

@@ -66,9 +66,14 @@ class ExecutionEngine:
                 if step_callback:
                     await step_callback({"type": "step", "step": step, "message": "Agent thinking..."})
 
-                # 1. Agent Decision
+                # 1. Agent Decision (with screenshot for vision models)
                 try:
-                    action: AgentAction = await self.agent.decide_next_action(current_state)
+                    screenshot_data = None
+                    if playwright_sim is not None:
+                        screenshot_data = await playwright_sim.take_screenshot()
+                    action: AgentAction = await self.agent.decide_next_action(
+                        current_state, screenshot=screenshot_data
+                    )
                 except Exception as e:
                     failure_reason = f"Agent Error: {str(e)}"
                     break
@@ -151,6 +156,9 @@ class ExecutionEngine:
         finally:
             if playwright_sim is not None:
                 await playwright_sim.close()
+
+        # Compute composite cognitive load score
+        metrics.compute_cognitive_load()
 
         if sus_responses is not None:
             metrics.sus_inspired_score = compute_sus_inspired_score(sus_responses)

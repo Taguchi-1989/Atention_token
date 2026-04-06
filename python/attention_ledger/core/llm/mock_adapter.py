@@ -27,7 +27,8 @@ class MockAdapter(LLMAdapter):
     def get_token_usage_cost(self, usage: TokenUsage) -> float:
         return 0.0
 
-    async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> LLMResponse:
+    async def generate(self, prompt: str, system_prompt: Optional[str] = None,
+                       images=None) -> LLMResponse:
         # Pick action from sequence; last action repeats if exceeded
         idx = min(self._call_count, len(_MOCK_ACTIONS) - 1)
         action = _MOCK_ACTIONS[idx]

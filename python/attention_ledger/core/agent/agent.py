@@ -18,9 +18,11 @@ class FirstTimeUserAgent:
         self.system_prompt = system_prompt
         self.history: List[Dict[str, Any]] = []
 
-    async def decide_next_action(self, current_state_description: str) -> AgentAction:
+    async def decide_next_action(self, current_state_description: str,
+                                  screenshot: bytes = None) -> AgentAction:
         """
         Decides the next action based on the current state (e.g. screen description).
+        If screenshot is provided, it is sent to a vision model alongside the text.
         """
         # Build context from history
         context = ""
@@ -42,7 +44,10 @@ Current Screen State:
 Decide your next action based on the screen state and your goal.
 Return ONLY valid JSON.
 """
-        response: LLMResponse = await self.adapter.generate(prompt, system_prompt=self.system_prompt)
+        images = [screenshot] if screenshot else None
+        response: LLMResponse = await self.adapter.generate(
+            prompt, system_prompt=self.system_prompt, images=images
+        )
         
         # Parse JSON
         try:
