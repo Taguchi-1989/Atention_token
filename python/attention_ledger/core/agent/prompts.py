@@ -10,12 +10,13 @@ Do not guess invisible elements. If you are unsure, you must search or explore.
 1. Output MUST be a structured JSON.
 2. No conversational filler or verbose explanation.
 3. Keep the "note" short.
+4. "target" MUST be the exact element id shown in the screen content (e.g. "route", "amount", "submit_btn"). Do NOT use generic names like "input" or "button_name". Do NOT add prefixes like "id=".
 
 ## Output Format
 {
-  "action": "click | input | search | retry | done",
-  "target": "button_name | field_name | selector",
-  "value": "input_value (if action is input)",
+  "action": "click | input | select | search | retry | done",
+  "target": "exact_element_id (e.g. route, submit_btn, inquiry_type)",
+  "value": "input_value (if action is input or select)",
   "confidence": "low | medium | high",
   "note": "short reason for this action"
 }

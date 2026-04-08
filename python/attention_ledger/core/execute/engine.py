@@ -109,7 +109,7 @@ class ExecutionEngine:
                                 f"[SCREEN CONTENT]\n{playwright_sim.get_visible_text()}"
                             )
                 elif simulator is not None:
-                    if action.action in ['input', 'click']:
+                    if action.action in ['input', 'click', 'select']:
                         valid = simulator.execute_action(action.action, action.target, action.value)
                         if not valid and action.action != 'done':
                             action_success = False

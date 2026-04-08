@@ -24,7 +24,7 @@ class OllamaAdapter(LLMAdapter):
         self.base_url = base_url or settings.ollama_url
         self.model = model or settings.model_name
         self.temperature = temperature if temperature is not None else settings.temperature
-        self._client = httpx.AsyncClient(timeout=60.0)
+        self._client = httpx.AsyncClient(timeout=120.0)
 
     async def generate(self, prompt: str, system_prompt: Optional[str] = None,
                        images: Optional[List[bytes]] = None) -> LLMResponse:
