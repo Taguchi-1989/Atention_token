@@ -1,5 +1,6 @@
+import re
 from bs4 import BeautifulSoup
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 
 class SimpleWebSimulator:
     def __init__(self, initial_html: str):
@@ -7,6 +8,16 @@ class SimpleWebSimulator:
         self.soup = BeautifulSoup(initial_html, 'html.parser')
         self.state_changes: Dict[str, str] = {} # Map input_id -> value
         self.submitted: bool = False
+        self._hidden_ids: Set[str] = self._extract_hidden_ids()
+
+    def _extract_hidden_ids(self) -> Set[str]:
+        """Parse <style> blocks for #id { display: none } rules."""
+        hidden = set()
+        for style_tag in self.soup.find_all('style'):
+            css = style_tag.string or ''
+            for match in re.finditer(r'#([\w-]+)\s*\{[^}]*display\s*:\s*none', css):
+                hidden.add(match.group(1))
+        return hidden
 
     def get_visible_text(self) -> str:
         """Returns a simplified text representation of the screen for the LLM."""
@@ -23,24 +34,35 @@ class SimpleWebSimulator:
         
         if node.name in ['script', 'style']:
             return ""
+        # Skip elements with display:none (inline or CSS)
+        style = node.get('style', '')
+        if 'display' in style and 'none' in style:
+            return ""
+        if node.get('id') in self._hidden_ids:
+            return ""
             
         if node.string and node.string.strip():
             text += f"{prefix}{node.string.strip()}\n"
             
         if node.name == 'input':
             eid = node.get('id', 'N/A')
-            val = self.state_changes.get(eid, "")
+            val = self.state_changes.get(eid, node.get('value', ''))
             text += f"{prefix}[INPUT id={eid} placeholder='{node.get('placeholder','')}'] Value='{val}'\n"
+        elif node.name == 'textarea':
+            eid = node.get('id', 'N/A')
+            val = self.state_changes.get(eid, node.get_text(strip=True))
+            text += f"{prefix}[TEXTAREA id={eid} placeholder='{node.get('placeholder','')}'] Value='{val}'\n"
         elif node.name == 'select':
             eid = node.get('id', 'N/A')
             options = [opt.get_text(strip=True) for opt in node.find_all('option')]
-            val = self.state_changes.get(eid, "")
+            selected = [opt.get_text(strip=True) for opt in node.find_all('option', selected=True)]
+            val = self.state_changes.get(eid, selected[0] if selected else '')
             text += f"{prefix}[SELECT id={eid} options={options}] Value='{val}'\n"
         elif node.name == 'button':
             eid = node.get('id', 'N/A')
             text += f"{prefix}[BUTTON id={eid}] {node.get_text(strip=True)}\n"
         
-        if hasattr(node, 'children'):
+        if node.name not in ['select', 'textarea'] and hasattr(node, 'children'):
             for child in node.children:
                 if child.name:
                     text += self._render_dom(child, depth + 1)

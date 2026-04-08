@@ -4,6 +4,11 @@ import sys
 import os
 import traceback
 
+# Fix Windows console encoding for Unicode output
+if sys.stdout.encoding and sys.stdout.encoding.lower().startswith('cp'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from attention_ledger.core.llm.adapter import OllamaAdapter
