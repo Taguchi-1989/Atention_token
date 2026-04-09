@@ -3,7 +3,7 @@ from typing import Optional
 class PlaywrightSimulator:
     """Browser-based simulator using Playwright for real web pages."""
 
-    DEFAULT_TIMEOUT = 5000  # milliseconds
+    DEFAULT_TIMEOUT = 30000  # milliseconds
 
     def __init__(self, headless: bool = True, timeout: int = DEFAULT_TIMEOUT):
         self._headless = headless
@@ -186,16 +186,14 @@ class PlaywrightSimulator:
     async def _resolve_locator(self, target: str):
         """
         Try to resolve target to a Playwright locator.
-        Priority: CSS selector -> visible text -> aria-label.
+        Priority: CSS selector -> aria-label/form label -> placeholder -> role -> visible text.
         Uses a short probe timeout so that fallback strategies fail fast.
         Returns None if nothing found.
         """
         page = self._page
-        # Use a shorter timeout per probe to avoid waiting full _timeout
-        # for each fallback strategy when the element simply doesn't exist.
-        probe_timeout = min(1500, self._timeout)
+        probe_timeout = min(3000, self._timeout)
 
-        # 1. CSS selector
+        # 1. CSS selector (e.g. "#username", "input[name=email]")
         try:
             locator = page.locator(target).first
             await locator.wait_for(state="visible", timeout=probe_timeout)
@@ -203,17 +201,34 @@ class PlaywrightSimulator:
         except Exception:
             pass
 
-        # 2. Visible text (partial match)
+        # 2. Aria-label / form label (best for input fields)
         try:
-            locator = page.get_by_text(target, exact=False).first
+            locator = page.get_by_label(target).first
             await locator.wait_for(state="visible", timeout=probe_timeout)
             return locator
         except Exception:
             pass
 
-        # 3. Aria-label / form label
+        # 3. Placeholder text
         try:
-            locator = page.get_by_label(target).first
+            locator = page.get_by_placeholder(target).first
+            await locator.wait_for(state="visible", timeout=probe_timeout)
+            return locator
+        except Exception:
+            pass
+
+        # 4. Role-based (button, link)
+        for role in ("button", "link"):
+            try:
+                locator = page.get_by_role(role, name=target).first
+                await locator.wait_for(state="visible", timeout=probe_timeout)
+                return locator
+            except Exception:
+                pass
+
+        # 5. Visible text (partial match — last resort)
+        try:
+            locator = page.get_by_text(target, exact=False).first
             await locator.wait_for(state="visible", timeout=probe_timeout)
             return locator
         except Exception:
