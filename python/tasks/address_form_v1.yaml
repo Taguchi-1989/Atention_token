@@ -1,0 +1,12 @@
+task_id: ADDRESS_FORM_V1
+description: 配送先住所の入力（フリーテキストのみ・ヒントなし）
+start_condition: checkout_shipping_page_loaded
+goal_condition: shipping_address_saved
+input_data:
+  recipient_name: "Yamada Taro"
+  country: "Japan"
+  postal_code: "100-0001"
+  prefecture: "Tokyo"
+  city: "Chiyoda-ku"
+  street_address: "1-1-1 Chiyoda"
+  phone_number: "090-1234-5678"

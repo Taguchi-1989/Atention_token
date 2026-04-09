@@ -1,0 +1,239 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Account Settings — User Portal</title>
+    <style>
+      body { font-family: Arial; margin: 0; background: #f0f0f0; }
+      .topbar { background: #1a237e; color: #fff; padding: 8px 16px; font-size: 0.85rem; display: flex; justify-content: space-between; }
+      .breadcrumb { font-size: 0.7rem; padding: 4px 16px; background: #e0e0e0; color: #555; }
+      .layout { display: flex; }
+      .sidebar { width: 220px; background: #fff; border-right: 1px solid #ccc; padding: 8px; font-size: 0.8rem; min-height: 600px; }
+      .sidebar h3 { font-size: 0.8rem; color: #1a237e; border-bottom: 1px solid #ccc; padding-bottom: 3px; margin: 8px 0 4px; }
+      .sidebar ul { margin: 0; padding: 0 0 0 10px; list-style: none; }
+      .sidebar li { margin: 3px 0; }
+      .sidebar a { color: #333; text-decoration: none; font-size: 0.78rem; }
+      .sidebar a:hover { color: #1a237e; }
+      .main { flex: 1; padding: 16px; }
+      .section { background: #fff; border: 1px solid #ccc; margin-bottom: 10px; }
+      .section-header { background: #e8eaf6; padding: 8px 12px; font-size: 0.85rem; font-weight: bold; cursor: pointer; display: flex; justify-content: space-between; }
+      .section-body { padding: 12px; display: none; }
+      .section-body.open { display: block; }
+      .sub-section { margin-left: 12px; border-left: 2px solid #c5cae9; padding-left: 10px; margin-top: 8px; }
+      .sub-section h4 { font-size: 0.8rem; color: #333; margin: 6px 0 4px; }
+      .sub-section ul { margin: 0; padding: 0 0 0 12px; font-size: 0.78rem; }
+      .sub-section li { margin: 3px 0; }
+      .sub-section a { color: #1a237e; text-decoration: none; }
+      .deep-section { margin-left: 16px; border-left: 2px solid #9fa8da; padding-left: 10px; margin-top: 8px; }
+      .deep-section h5 { font-size: 0.78rem; color: #555; margin: 6px 0 4px; }
+      .deep-section ul { margin: 0; padding: 0 0 0 12px; font-size: 0.75rem; }
+      .deepest { margin-left: 16px; border-left: 2px solid #c0c0c0; padding-left: 10px; margin-top: 6px; font-size: 0.75rem; }
+      .notice { background: #fff3e0; border: 1px solid #ffb300; padding: 6px 10px; font-size: 0.75rem; margin-bottom: 10px; }
+      label { display: block; margin: 4px 0; font-size: 0.78rem; }
+      input[type=checkbox] { margin-right: 4px; }
+      input[type=text], input[type=email] { font-size: 0.78rem; padding: 3px 6px; border: 1px solid #aaa; width: 200px; margin-top: 2px; }
+      button { font-size: 0.78rem; padding: 4px 12px; cursor: pointer; margin-top: 4px; }
+      .btn-primary { background: #1a237e; color: #fff; border: 1px solid #0d1757; }
+      #success_msg { display: none; background: #e8f5e9; border: 1px solid #388e3c; padding: 10px; color: #1b5e20; font-size: 0.85rem; margin-top: 10px; }
+    </style>
+  </head>
+  <body>
+    <div class="topbar">
+      <span>User Portal — Settings</span>
+      <span>user@example.com | <a href="#" style="color:#aaa">Help</a> | <a href="#" style="color:#aaa">Logout</a></span>
+    </div>
+    <div class="breadcrumb" id="breadcrumb_trail">Home &gt; Settings &gt; Account &gt; Privacy &amp; Notifications &gt; Email Preferences</div>
+
+    <div class="layout">
+      <div class="sidebar">
+        <h3>Settings Menu</h3>
+        <ul>
+          <li><a href="#">Dashboard</a></li>
+          <li><a href="#" style="font-weight:bold;color:#1a237e">Account Settings</a></li>
+          <li><a href="#">Security</a></li>
+          <li><a href="#">Integrations</a></li>
+          <li><a href="#">Billing &amp; Plans</a></li>
+          <li><a href="#">Appearance</a></li>
+          <li><a href="#">Language &amp; Region</a></li>
+        </ul>
+        <h3>Account</h3>
+        <ul>
+          <li><a href="#">Profile Info</a></li>
+          <li><a href="#">Password</a></li>
+          <li><a href="#">Two-Factor Auth</a></li>
+          <li><a href="#">Connected Apps</a></li>
+          <li><a href="#">Privacy &amp; Notifications</a></li>
+          <li><a href="#">Data Export</a></li>
+          <li><a href="#">Delete Account</a></li>
+        </ul>
+        <h3>Privacy &amp; Notifications</h3>
+        <ul>
+          <li><a href="#">Visibility Settings</a></li>
+          <li><a href="#">Data Sharing</a></li>
+          <li><a href="#" style="font-weight:bold;color:#1a237e">Email Preferences</a></li>
+          <li><a href="#">Push Notifications</a></li>
+          <li><a href="#">SMS Alerts</a></li>
+          <li><a href="#">In-App Alerts</a></li>
+          <li><a href="#">Cookie Settings</a></li>
+        </ul>
+      </div>
+
+      <div class="main">
+        <div class="notice">Changes to your settings may take up to 24 hours to take effect. Please review all sections before saving.</div>
+        <h2 style="font-size:1rem;margin:0 0 10px">Account Settings</h2>
+
+        <!-- Level 1: Settings -->
+        <div class="section">
+          <div class="section-header" onclick="toggleSection('sec_profile')">
+            Profile Settings <span>&#9660;</span>
+          </div>
+          <div class="section-body" id="sec_profile">
+            <ul style="font-size:0.78rem;padding-left:16px">
+              <li><a href="#">Edit Display Name</a></li>
+              <li><a href="#">Update Avatar</a></li>
+              <li><a href="#">Set Bio</a></li>
+              <li><a href="#">Manage Links</a></li>
+              <li><a href="#">Time Zone</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-header" onclick="toggleSection('sec_security')">
+            Security Settings <span>&#9660;</span>
+          </div>
+          <div class="section-body" id="sec_security">
+            <ul style="font-size:0.78rem;padding-left:16px">
+              <li><a href="#">Change Password</a></li>
+              <li><a href="#">Active Sessions</a></li>
+              <li><a href="#">Login History</a></li>
+              <li><a href="#">API Keys</a></li>
+              <li><a href="#">OAuth Apps</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Level 1: Account (expanded) -->
+        <div class="section">
+          <div class="section-header" onclick="toggleSection('sec_account')" style="background:#c5cae9">
+            Account Settings (Expanded) <span>&#9650;</span>
+          </div>
+          <div class="section-body open" id="sec_account">
+            <ul style="font-size:0.78rem;padding-left:16px">
+              <li><a href="#">Profile Info</a></li>
+              <li><a href="#">Password</a></li>
+              <li><a href="#">Two-Factor Auth</a></li>
+              <li><a href="#">Connected Apps</a></li>
+            </ul>
+
+            <!-- Level 2: Privacy & Notifications -->
+            <div class="sub-section">
+              <h4>Privacy &amp; Notifications</h4>
+              <ul>
+                <li><a href="#">Visibility Settings</a></li>
+                <li><a href="#">Data Sharing</a></li>
+                <li><a href="#">Push Notifications</a></li>
+                <li><a href="#">SMS Alerts</a></li>
+                <li><a href="#">Cookie Settings</a></li>
+              </ul>
+
+              <!-- Level 3: Email Preferences (expanded) -->
+              <div class="deep-section">
+                <h5>Email Preferences (Current Section)</h5>
+                <ul>
+                  <li><a href="#">Marketing Emails</a></li>
+                  <li><a href="#">Product Updates</a></li>
+                  <li><a href="#">Security Alerts</a></li>
+                  <li><a href="#">Weekly Digest</a></li>
+                </ul>
+
+                <!-- Level 4: The actual notification toggle form -->
+                <div class="deepest">
+                  <p style="font-size:0.75rem;color:#666">Select which notification emails you wish to receive. Note: Transactional emails (password reset, billing) cannot be disabled.</p>
+
+                  <div style="margin-bottom:6px">
+                    <strong style="font-size:0.75rem">Account Notifications</strong>
+                    <label><input type="checkbox" id="notif_login" checked /> Login alerts</label>
+                    <label><input type="checkbox" id="notif_password_change" checked /> Password changes</label>
+                    <label><input type="checkbox" id="notif_profile_update" /> Profile update confirmations</label>
+                    <label><input type="checkbox" id="notif_export" /> Data export ready</label>
+                    <label><input type="checkbox" id="notif_deletion" checked /> Account deletion warnings</label>
+                  </div>
+
+                  <div style="margin-bottom:6px">
+                    <strong style="font-size:0.75rem">Product &amp; Updates</strong>
+                    <label><input type="checkbox" id="notif_product_news" checked /> Product news and announcements</label>
+                    <label><input type="checkbox" id="notif_feature_updates" checked /> Feature updates</label>
+                    <label><input type="checkbox" id="notif_tips" checked /> Tips and best practices</label>
+                    <label><input type="checkbox" id="notif_surveys" checked /> Surveys and feedback requests</label>
+                    <label><input type="checkbox" id="notif_webinar" checked /> Webinar invitations</label>
+                  </div>
+
+                  <div style="margin-bottom:6px">
+                    <strong style="font-size:0.75rem">Email Frequency</strong>
+                    <label><input type="radio" name="email_freq" id="freq_instant" checked /> Instant (send immediately)</label>
+                    <label><input type="radio" name="email_freq" id="freq_daily" /> Daily digest</label>
+                    <label><input type="radio" name="email_freq" id="freq_weekly" /> Weekly digest</label>
+                    <label><input type="radio" name="email_freq" id="freq_none" /> Do not send (disable all non-essential)</label>
+                  </div>
+
+                  <div style="margin-bottom:6px">
+                    <strong style="font-size:0.75rem">Format Preferences</strong>
+                    <label><input type="radio" name="email_format" id="fmt_html" checked /> HTML (rich email)</label>
+                    <label><input type="radio" name="email_format" id="fmt_text" /> Plain text</label>
+                  </div>
+
+                  <label style="font-size:0.75rem">Preferred send time (UTC):
+                    <select id="send_time" style="font-size:0.75rem;margin-top:2px">
+                      <option value="">-- No preference --</option>
+                      <option value="0">00:00</option>
+                      <option value="6">06:00</option>
+                      <option value="9">09:00</option>
+                      <option value="12">12:00</option>
+                      <option value="18">18:00</option>
+                    </select>
+                  </label>
+
+                  <div style="margin-top:8px;display:flex;gap:6px">
+                    <button class="btn-primary" id="submit_preferences" onclick="savePrefs()">Save Email Preferences</button>
+                    <button onclick="cancelPrefs()">Cancel</button>
+                    <button onclick="resetDefaults()" style="color:#a00;border:1px solid #f99;background:#fff">Reset to Defaults</button>
+                  </div>
+                  <p style="font-size:0.7rem;color:#888;margin-top:4px">Last updated: Never | Changes apply within 24 hours</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-header" onclick="toggleSection('sec_billing')">
+            Billing &amp; Plans <span>&#9660;</span>
+          </div>
+          <div class="section-body" id="sec_billing">
+            <ul style="font-size:0.78rem;padding-left:16px">
+              <li><a href="#">Current Plan</a></li>
+              <li><a href="#">Invoices</a></li>
+              <li><a href="#">Payment Methods</a></li>
+              <li><a href="#">Upgrade Plan</a></li>
+              <li><a href="#">Cancel Subscription</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div id="success_msg">Notification preferences saved successfully.</div>
+      </div>
+    </div>
+
+    <script>
+      function toggleSection(id) {
+        var el = document.getElementById(id);
+        el.classList.toggle('open');
+      }
+      function savePrefs() {
+        document.getElementById('success_msg').style.display = 'block';
+      }
+      function cancelPrefs() {}
+      function resetDefaults() {}
+    </script>
+  </body>
+</html>

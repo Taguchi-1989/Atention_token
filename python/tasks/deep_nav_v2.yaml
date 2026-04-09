@@ -1,0 +1,6 @@
+task_id: DEEP_NAV_V2
+description: 通知設定の変更（フラットなUI）
+start_condition: notification_preferences_page_loaded
+goal_condition: notification_preferences_saved
+input_data:
+  email_notifications: "off"

@@ -93,13 +93,17 @@ class SimpleWebSimulator:
             return False
 
         elif action == 'click':
-            # simulate click
+            # simulate click — check buttons, links, and clickable inputs (radio/checkbox)
             element = self.soup.find('button', id=target)
             if not element:
-                 element = self.soup.find('a', id=target)
+                element = self.soup.find('a', id=target)
+            if not element:
+                element = self.soup.find('input', id=target)
 
             if element and 'submit' in (target or '').lower():
                 self.submitted = True
+            if element and element.name == 'input' and element.get('type') in ('checkbox', 'radio'):
+                self.state_changes[target] = 'checked'
             return element is not None
 
         elif action == 'select':

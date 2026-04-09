@@ -1,0 +1,166 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Shipping Address — Checkout</title>
+    <style>
+      body { font-family: Arial; margin: 0; background: #f5f5f5; }
+      .topbar { background: #333; color: #fff; padding: 8px 16px; font-size: 0.85rem; display: flex; justify-content: space-between; }
+      .breadcrumb { font-size: 0.7rem; padding: 4px 16px; background: #e8e8e8; color: #555; }
+      .layout { display: flex; padding: 16px; gap: 16px; }
+      .sidebar { width: 200px; background: #fff; border: 1px solid #ddd; padding: 12px; font-size: 0.78rem; }
+      .sidebar h4 { font-size: 0.8rem; margin: 0 0 8px; color: #333; }
+      .sidebar ul { margin: 0; padding: 0 0 0 12px; font-size: 0.75rem; color: #666; }
+      .sidebar li { margin: 4px 0; }
+      .main { flex: 1; }
+      .card { background: #fff; border: 1px solid #ddd; padding: 16px; margin-bottom: 12px; }
+      .card h2 { font-size: 0.95rem; margin: 0 0 12px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+      .notice { background: #e3f2fd; border: 1px solid #90caf9; padding: 6px 10px; font-size: 0.75rem; margin-bottom: 10px; }
+      .field-row { margin-bottom: 10px; }
+      .field-row label { display: block; font-size: 0.78rem; color: #444; margin-bottom: 2px; }
+      .field-row input[type=text] { width: 100%; font-size: 0.82rem; padding: 6px 8px; border: 1px solid #bbb; box-sizing: border-box; }
+      .field-row select { width: 100%; font-size: 0.82rem; padding: 6px 8px; border: 1px solid #bbb; box-sizing: border-box; }
+      .field-row .hint { font-size: 0.68rem; color: #888; margin-top: 2px; }
+      .two-col { display: flex; gap: 10px; }
+      .two-col .field-row { flex: 1; }
+      .req { color: #c00; }
+      .btn-row { display: flex; gap: 8px; margin-top: 12px; }
+      button { font-size: 0.82rem; padding: 7px 18px; cursor: pointer; }
+      .btn-primary { background: #1565c0; color: #fff; border: 1px solid #0d47a1; }
+      .btn-secondary { background: #fff; border: 1px solid #999; color: #333; }
+      .steps { display: flex; gap: 0; margin-bottom: 16px; font-size: 0.75rem; }
+      .step { padding: 6px 16px; background: #eee; border: 1px solid #ccc; color: #888; }
+      .step.active { background: #1565c0; color: #fff; border-color: #0d47a1; }
+      .step.done { background: #c8e6c9; color: #1b5e20; border-color: #a5d6a7; }
+      #success_msg { display: none; background: #e8f5e9; border: 1px solid #388e3c; padding: 10px; color: #1b5e20; font-size: 0.85rem; margin-top: 10px; }
+    </style>
+  </head>
+  <body>
+    <div class="topbar">
+      <span>ShopOnline — Checkout</span>
+      <span>Cart (3) | <a href="#" style="color:#aaa">My Account</a></span>
+    </div>
+    <div class="breadcrumb">Home &gt; Cart &gt; Checkout &gt; Shipping Address</div>
+
+    <div class="layout">
+      <div class="sidebar">
+        <h4>Order Summary</h4>
+        <ul>
+          <li>Item 1 x1 — ¥3,200</li>
+          <li>Item 2 x2 — ¥1,800</li>
+          <li>Item 3 x1 — ¥980</li>
+        </ul>
+        <div style="border-top:1px solid #ddd;margin-top:8px;padding-top:6px;font-size:0.78rem">
+          Subtotal: ¥7,980<br/>
+          Shipping: TBD<br/>
+          <strong>Total: ¥7,980+</strong>
+        </div>
+        <div style="margin-top:8px;font-size:0.7rem;color:#666">
+          <strong>Accepted:</strong><br/>
+          Visa, Mastercard, PayPay, Konbini
+        </div>
+      </div>
+
+      <div class="main">
+        <div class="steps">
+          <div class="step done">1. Cart</div>
+          <div class="step active">2. Shipping</div>
+          <div class="step">3. Payment</div>
+          <div class="step">4. Confirm</div>
+        </div>
+        <div class="notice">Please fill in all required fields marked with <span class="req">*</span>. International shipping is available for select regions only.</div>
+
+        <div class="card">
+          <h2>Shipping Address</h2>
+
+          <div class="field-row">
+            <label for="recipient_name">Recipient Name <span class="req">*</span></label>
+            <input type="text" id="recipient_name" placeholder="Full name as on ID" />
+          </div>
+
+          <div class="field-row">
+            <label for="company_name">Company / Organization Name</label>
+            <input type="text" id="company_name" placeholder="Leave blank for personal delivery" />
+            <div class="hint">Optional. Required for business deliveries.</div>
+          </div>
+
+          <div class="field-row">
+            <label for="country_text">Country / Region <span class="req">*</span></label>
+            <input type="text" id="country_text" placeholder="e.g. Japan, United States, Australia" />
+            <div class="hint">Type the full country name in English.</div>
+          </div>
+
+          <div class="field-row">
+            <label for="postal_code">Postal Code / ZIP Code <span class="req">*</span></label>
+            <input type="text" id="postal_code" placeholder="e.g. 100-0001 or 90210" />
+            <div class="hint">Format varies by country. Do not include hyphens for US ZIP codes.</div>
+          </div>
+
+          <div class="field-row">
+            <label for="prefecture_text">Prefecture / State / Province <span class="req">*</span></label>
+            <input type="text" id="prefecture_text" placeholder="e.g. Tokyo, California, Ontario" />
+          </div>
+
+          <div class="field-row">
+            <label for="locality">Locality <span class="req">*</span></label>
+            <input type="text" id="locality" placeholder="e.g. Chiyoda-ku, Los Angeles, Toronto" />
+            <div class="hint">"Locality" refers to your city, ward, or municipality.</div>
+          </div>
+
+          <div class="field-row">
+            <label for="address_line1">Address Line 1 <span class="req">*</span></label>
+            <input type="text" id="address_line1" placeholder="Street number, street name" />
+          </div>
+
+          <div class="field-row">
+            <label for="address_line2">Address Line 2</label>
+            <input type="text" id="address_line2" placeholder="Apartment, suite, unit, floor, etc." />
+          </div>
+
+          <div class="field-row">
+            <label for="address_line3">Address Line 3</label>
+            <input type="text" id="address_line3" placeholder="Additional address info (if needed)" />
+          </div>
+
+          <div class="two-col">
+            <div class="field-row">
+              <label for="phone_country_code">Phone Country Code <span class="req">*</span></label>
+              <input type="text" id="phone_country_code" placeholder="+81" />
+            </div>
+            <div class="field-row">
+              <label for="phone_number">Phone Number <span class="req">*</span></label>
+              <input type="text" id="phone_number" placeholder="090-0000-0000" />
+            </div>
+          </div>
+
+          <div class="field-row">
+            <label for="delivery_instructions">Delivery Instructions</label>
+            <input type="text" id="delivery_instructions" placeholder="Leave at door, ring bell, etc." />
+          </div>
+
+          <div class="field-row">
+            <label for="address_nickname">Address Nickname (for saved addresses)</label>
+            <input type="text" id="address_nickname" placeholder="e.g. Home, Office" />
+          </div>
+
+          <div style="margin-bottom:8px">
+            <label style="font-size:0.78rem"><input type="checkbox" id="save_address" /> Save this address to my address book</label>
+            <label style="font-size:0.78rem"><input type="checkbox" id="default_address" /> Set as default shipping address</label>
+            <label style="font-size:0.78rem"><input type="checkbox" id="billing_same" checked /> Billing address is the same as shipping address</label>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn-primary" id="submit_address" onclick="submitAddress()">Continue to Payment</button>
+            <button class="btn-secondary" onclick="history.back()">Back to Cart</button>
+          </div>
+          <div id="success_msg">Shipping address saved. Proceeding to payment...</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function submitAddress() {
+        document.getElementById('success_msg').style.display = 'block';
+      }
+    </script>
+  </body>
+</html>

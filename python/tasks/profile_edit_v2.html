@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Edit Profile</title>
+  </head>
+  <body>
+    <h1>Edit Profile</h1>
+    <p>Update your information below. Current values are pre-filled.</p>
+
+    <div>
+      <h2>Personal Information</h2>
+      <label for="display_name">Display Name</label>
+      <input type="text" id="display_name" value="John Doe" />
+
+      <label for="first_name">First Name</label>
+      <input type="text" id="first_name" value="John" />
+
+      <label for="last_name">Last Name</label>
+      <input type="text" id="last_name" value="Doe" />
+
+      <label for="bio">Bio</label>
+      <textarea id="bio" placeholder="Tell others about yourself">Software developer based in Tokyo.</textarea>
+    </div>
+
+    <div>
+      <h2>Contact Information</h2>
+      <label for="email_new">Email Address</label>
+      <input type="email" id="email_new" value="john.doe@example.com" />
+
+      <label for="phone_new">Phone Number</label>
+      <input type="text" id="phone_new" value="090-1234-5678" />
+    </div>
+
+    <div>
+      <button id="submit_profile">Save Changes</button>
+      <button id="btn_cancel">Cancel</button>
+    </div>
+  </body>
+</html>

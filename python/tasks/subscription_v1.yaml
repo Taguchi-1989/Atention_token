@@ -1,0 +1,9 @@
+task_id: SUBSCRIPTION_V1
+description: サービスプランのサブスクリプション登録（ダークパターン・事前チェック付き）
+start_condition: plan_selection_page_loaded
+goal_condition: basic_plan_subscribed_without_addons
+input_data:
+  plan: "basic"
+  addon_premium_support: false
+  addon_partner_offers: false
+  addon_auto_renewal: false

@@ -1,0 +1,164 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Subscribe — ProService Plans</title>
+    <style>
+      body { font-family: Arial; margin: 0; background: #f5f5f5; }
+      .topbar { background: #2e7d32; color: #fff; padding: 8px 16px; font-size: 0.85rem; }
+      .main { max-width: 680px; margin: 20px auto; }
+      .card { background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 20px; margin-bottom: 12px; }
+      .card h2 { font-size: 1rem; margin: 0 0 12px; }
+      .plan-option { border: 2px solid #ddd; border-radius: 4px; padding: 10px 14px; margin-bottom: 8px; font-size: 0.85rem; cursor: pointer; }
+      .plan-option.selected { border-color: #2e7d32; background: #f1f8f1; }
+      .plan-option label { cursor: pointer; display: flex; align-items: flex-start; gap: 8px; }
+      .plan-option .plan-name { font-weight: bold; }
+      .plan-option .plan-price { color: #2e7d32; font-weight: bold; }
+      .plan-option .plan-desc { font-size: 0.75rem; color: #666; }
+      .addon-box { border: 1px solid #ccc; border-radius: 4px; padding: 10px 14px; margin-bottom: 6px; font-size: 0.83rem; background: #fffde7; }
+      .addon-box label { cursor: pointer; display: flex; align-items: flex-start; gap: 8px; }
+      .addon-box .addon-name { font-weight: bold; }
+      .addon-box .addon-price { color: #e65100; font-size: 0.75rem; }
+      .addon-box .addon-fine { font-size: 0.68rem; color: #888; margin-top: 2px; }
+      .dark-opt { border: 1px solid #ccc; border-radius: 4px; padding: 8px 14px; margin-bottom: 6px; font-size: 0.78rem; background: #fafafa; }
+      .dark-opt label { cursor: pointer; display: flex; align-items: flex-start; gap: 8px; }
+      .dark-opt .opt-desc { font-size: 0.72rem; color: #777; margin-top: 1px; }
+      .notice { background: #e8f5e9; border: 1px solid #a5d6a7; padding: 6px 10px; font-size: 0.72rem; color: #1b5e20; margin-bottom: 10px; }
+      .fine-print { font-size: 0.65rem; color: #999; margin-top: 6px; line-height: 1.4; }
+      .btn-row { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+      .btn-accept { background: #2e7d32; color: #fff; border: none; padding: 12px 20px; font-size: 0.95rem; cursor: pointer; border-radius: 4px; font-weight: bold; }
+      .btn-decline { background: #f5f5f5; color: #aaa; border: 1px solid #ccc; padding: 8px 20px; font-size: 0.75rem; cursor: pointer; border-radius: 4px; }
+      #success_msg { display: none; background: #e8f5e9; border: 1px solid #388e3c; padding: 12px; color: #1b5e20; font-size: 0.9rem; margin-top: 10px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <div class="topbar">ProService — Plan Selection</div>
+
+    <div class="main">
+      <div class="card">
+        <h2>Choose Your Plan</h2>
+        <div class="notice">Limited time: Sign up today and get your first month at a discounted rate!</div>
+
+        <div class="plan-option selected">
+          <label>
+            <input type="radio" name="plan" id="plan_basic" value="basic" checked />
+            <div>
+              <div class="plan-name">Basic Plan</div>
+              <div class="plan-price">¥980 / month</div>
+              <div class="plan-desc">Core features. Up to 5 projects. 5GB storage. Email support.</div>
+            </div>
+          </label>
+        </div>
+        <div class="plan-option">
+          <label>
+            <input type="radio" name="plan" id="plan_pro" value="pro" />
+            <div>
+              <div class="plan-name">Pro Plan</div>
+              <div class="plan-price">¥2,480 / month</div>
+              <div class="plan-desc">All Basic features + unlimited projects, 50GB storage, priority support.</div>
+            </div>
+          </label>
+        </div>
+        <div class="plan-option">
+          <label>
+            <input type="radio" name="plan" id="plan_enterprise" value="enterprise" />
+            <div>
+              <div class="plan-name">Enterprise Plan</div>
+              <div class="plan-price">¥9,800 / month</div>
+              <div class="plan-desc">Everything in Pro + custom integrations, SLA, dedicated account manager.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Enhance Your Plan (Optional Add-ons)</h2>
+
+        <div class="addon-box">
+          <label>
+            <input type="checkbox" id="addon_premium_support" checked />
+            <div>
+              <div class="addon-name">Premium Support Package</div>
+              <div class="addon-price">+¥990/month (billed monthly)</div>
+              <div class="addon-fine">24/7 phone &amp; chat support with guaranteed 1-hour response time. Auto-renews. Cancel anytime.</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="addon-box">
+          <label>
+            <input type="checkbox" id="addon_partner_offers" checked />
+            <div>
+              <div class="addon-name">Partner Offers &amp; Exclusive Deals</div>
+              <div class="addon-price">Free</div>
+              <div class="addon-fine">Receive curated offers from our trusted partners. Personalized to your usage. Unsubscribe anytime from partner emails.</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="addon-box">
+          <label>
+            <input type="checkbox" id="addon_auto_renewal" checked />
+            <div>
+              <div class="addon-name">Enable Auto-Renewal</div>
+              <div class="addon-price">Ensures uninterrupted service</div>
+              <div class="addon-fine">Your plan renews automatically each billing cycle. We'll charge your payment method on file. Manage anytime in Account Settings.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Communication Preferences</h2>
+        <div style="font-size:0.78rem;color:#555;margin-bottom:8px">Please review your communication preferences below.</div>
+
+        <div class="dark-opt">
+          <label>
+            <input type="checkbox" id="opt_no_marketing" />
+            <div>
+              <div>Uncheck to not opt out of marketing communications</div>
+              <div class="opt-desc">Leave unchecked if you do not wish to decline receiving promotional content from ProService and affiliated entities.</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="dark-opt">
+          <label>
+            <input type="checkbox" id="opt_data_sharing" checked />
+            <div>
+              <div>Allow data sharing with select research partners</div>
+              <div class="opt-desc">We may share anonymized usage data with trusted analytics partners to improve the service. Uncheck to opt out.</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="dark-opt">
+          <label>
+            <input type="checkbox" id="opt_sms" checked />
+            <div>
+              <div>Receive SMS notifications about your account</div>
+              <div class="opt-desc">Uncheck to disable account-related SMS messages. Note: Critical security alerts cannot be disabled.</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="fine-print">
+          By proceeding you agree to our Terms of Service, Privacy Policy, Auto-Renewal Terms, and Partner Program Terms. Premium Support will be charged immediately upon confirmation. All prices include applicable taxes. Refunds are subject to our refund policy. Auto-renewal can be cancelled at least 24 hours before the next billing date via Account Settings &gt; Subscriptions &gt; Manage.
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-accept" id="submit_subscription" onclick="acceptAll()">Accept All &amp; Continue</button>
+        <button class="btn-decline" onclick="declineAll()">No thanks, I prefer limited features and fewer benefits</button>
+      </div>
+
+      <div id="success_msg">Thank you! Your Basic Plan subscription is confirmed. You have been enrolled in the Premium Support Package, Partner Offers, and Auto-Renewal as selected.</div>
+    </div>
+
+    <script>
+      function acceptAll() {
+        document.getElementById('success_msg').style.display = 'block';
+      }
+      function declineAll() {}
+    </script>
+  </body>
+</html>

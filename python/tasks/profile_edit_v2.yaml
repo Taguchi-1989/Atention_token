@@ -1,0 +1,7 @@
+task_id: PROFILE_EDIT_V2
+description: プロフィール更新（シングルページ・現在値プリフィル）
+start_condition: profile_edit_page_loaded
+goal_condition: profile_updated
+input_data:
+  display_name: "JohnD"
+  email: "john.new@example.com"

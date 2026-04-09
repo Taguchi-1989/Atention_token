@@ -1,0 +1,7 @@
+task_id: PROFILE_EDIT_V1
+description: プロフィール更新（3ステップウィザード・戻れないレビュー画面）
+start_condition: profile_edit_page_loaded
+goal_condition: profile_updated
+input_data:
+  display_name: "JohnD"
+  email: "john.new@example.com"
