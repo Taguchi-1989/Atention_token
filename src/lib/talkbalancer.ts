@@ -1,5 +1,10 @@
 // TalkBalancer API client (docs/talkbalancer/REQUIREMENTS_v0.2.md — Step 1)
+//
+// バックエンド（FastAPI）に接続できない環境（GitHub Pages 等の静的ホスティング）
+// では、自動的にデモモードへフォールバックし、localStorage で同一ブラウザ内
+// 動作する（./talkbalancer-demo.ts）。
 import { API_BASE_URL } from './api';
+import * as demo from './talkbalancer-demo';
 
 export type SessionMode = 'volume_only' | 'balance' | 'transcript';
 
@@ -38,45 +43,6 @@ export interface SessionState {
   seq: number;
 }
 
-const TB = `${API_BASE_URL}/talkbalancer`;
-
-export async function fetchTbSession(): Promise<SessionState> {
-  const res = await fetch(`${TB}/session`, { cache: 'no-store' });
-  if (!res.ok) throw new Error('Failed to fetch session');
-  return res.json();
-}
-
-export async function startTbSession(title: string, mode: SessionMode): Promise<SessionState> {
-  const res = await fetch(`${TB}/session`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, mode }),
-  });
-  if (!res.ok) throw new Error('Failed to start session');
-  return res.json();
-}
-
-export async function endTbSession(): Promise<void> {
-  const res = await fetch(`${TB}/session`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to end session');
-}
-
-export async function sendTbAlert(type: AlertType): Promise<TbAlert> {
-  const res = await fetch(`${TB}/alerts`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type }),
-  });
-  if (!res.ok) throw new Error('Failed to send alert');
-  return res.json();
-}
-
-export async function fetchTbAlerts(after: number): Promise<{ alerts: TbAlert[]; seq: number; active: boolean }> {
-  const res = await fetch(`${TB}/alerts?after=${after}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error('Failed to fetch alerts');
-  return res.json();
-}
-
 // F-07 / Step 4: サーバー解析結果
 export type NoiseCategory = 'quiet' | 'normal' | 'loud' | 'very_loud';
 
@@ -100,10 +66,84 @@ export const NOISE_LABELS: Record<NoiseCategory, string> = {
   very_loud: 'かなり高め',
 };
 
+const TB = `${API_BASE_URL}/talkbalancer`;
+
+// ── デモモード判定 ──
+// ネットワークエラー、または API パスが 404（静的ホスティング）の場合に
+// デモモードへ切り替える。一度切り替わったらページ再読み込みまで維持する。
+let demoMode = false;
+
+export function isDemoMode(): boolean {
+  return demoMode;
+}
+
+async function tbFetch(path: string, init?: RequestInit): Promise<Response | null> {
+  if (demoMode) return null;
+  try {
+    const res = await fetch(`${TB}${path}`, init);
+    if (res.status === 404) {
+      demoMode = true;
+      return null;
+    }
+    return res;
+  } catch {
+    demoMode = true;
+    return null;
+  }
+}
+
+export async function fetchTbSession(): Promise<SessionState> {
+  const res = await tbFetch('/session', { cache: 'no-store' });
+  if (!res) return demo.getSession();
+  if (!res.ok) throw new Error('Failed to fetch session');
+  return res.json();
+}
+
+export async function startTbSession(title: string, mode: SessionMode): Promise<SessionState> {
+  const res = await tbFetch('/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, mode }),
+  });
+  if (!res) return demo.startSession(title, mode);
+  if (!res.ok) throw new Error('Failed to start session');
+  return res.json();
+}
+
+export async function endTbSession(): Promise<void> {
+  const res = await tbFetch('/session', { method: 'DELETE' });
+  if (!res) return demo.endSession();
+  if (!res.ok) throw new Error('Failed to end session');
+}
+
+export async function sendTbAlert(type: AlertType): Promise<TbAlert> {
+  const res = await tbFetch('/alerts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type }),
+  });
+  if (!res) return demo.postAlert(type);
+  if (!res.ok) throw new Error('Failed to send alert');
+  return res.json();
+}
+
+export async function fetchTbAlerts(after: number): Promise<{ alerts: TbAlert[]; seq: number; active: boolean }> {
+  const res = await tbFetch(`/alerts?after=${after}`, { cache: 'no-store' });
+  if (!res) return demo.listAlerts(after);
+  if (!res.ok) throw new Error('Failed to fetch alerts');
+  return res.json();
+}
+
 export async function fetchTbAnalysis(): Promise<TbAnalysis> {
-  const res = await fetch(`${TB}/analysis`, { cache: 'no-store' });
+  const res = await tbFetch('/analysis', { cache: 'no-store' });
+  if (!res) return demo.ingestLocalMetric(0);
   if (!res.ok) throw new Error('Failed to fetch analysis');
   return res.json();
+}
+
+// デモモード時にテーブル端末内で解析する（音声波形は端末から出ない）
+export function ingestDemoMetric(rms: number): TbAnalysis {
+  return demo.ingestLocalMetric(rms);
 }
 
 // Step 3: 音声メトリクス送信用 WebSocket の URL（音声波形は送らない）

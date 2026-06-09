@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
-import { fetchTbSession, sendTbAlert, REMOTE_BUTTONS, AlertType } from '@/lib/talkbalancer';
+import { fetchTbSession, sendTbAlert, isDemoMode, REMOTE_BUTTONS, AlertType } from '@/lib/talkbalancer';
 
 // F-05 幹事リモコン
 export default function RemotePage() {
@@ -11,10 +11,11 @@ export default function RemotePage() {
   const [sending, setSending] = useState<AlertType | null>(null);
   const [sent, setSent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [demo, setDemo] = useState(false);
 
   useEffect(() => {
     fetchTbSession()
-      .then((s) => setActive(s.active))
+      .then((s) => { setActive(s.active); setDemo(isDemoMode()); })
       .catch(() => setActive(false));
   }, []);
 
@@ -39,7 +40,14 @@ export default function RemotePage() {
           <ArrowLeft size={16} /> TalkBalancer
         </Link>
 
-        <h1 className="text-2xl font-bold">幹事リモコン</h1>
+        <h1 className="text-2xl font-bold inline-flex items-center gap-2">
+          幹事リモコン
+          {demo && (
+            <span className="rounded-full border border-secondary/60 bg-secondary/10 px-2 py-0.5 text-xs font-normal text-secondary">
+              デモモード
+            </span>
+          )}
+        </h1>
         <p className="text-sm text-text-muted">
           ボタンを押すと、テーブル画面に丁重な文言でアラートが表示されます。
           誰が押したかは表示されません。

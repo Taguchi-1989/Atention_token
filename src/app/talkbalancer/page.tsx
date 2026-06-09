@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Wine, Megaphone, MonitorSpeaker, Mic, ScrollText, Trash2, ArrowLeft } from 'lucide-react';
-import { fetchTbSession, endTbSession, SessionState } from '@/lib/talkbalancer';
+import { fetchTbSession, endTbSession, isDemoMode, SessionState } from '@/lib/talkbalancer';
 
 const MODE_LABELS: Record<string, string> = {
   volume_only: 'モードA：音量のみ',
@@ -14,10 +14,11 @@ const MODE_LABELS: Record<string, string> = {
 export default function TalkBalancerHome() {
   const [state, setState] = useState<SessionState | null>(null);
   const [apiError, setApiError] = useState(false);
+  const [demo, setDemo] = useState(false);
 
   const load = useCallback(() => {
     fetchTbSession()
-      .then((s) => { setState(s); setApiError(false); })
+      .then((s) => { setState(s); setApiError(false); setDemo(isDemoMode()); })
       .catch(() => setApiError(true));
   }, []);
 
@@ -47,6 +48,17 @@ export default function TalkBalancerHome() {
         {apiError && (
           <div className="rounded-xl border border-error/40 bg-error/10 p-4 text-sm text-error">
             サーバーに接続できません。Local Server が起動しているか確認してください。
+          </div>
+        )}
+
+        {demo && (
+          <div className="rounded-xl border border-secondary/40 bg-secondary/10 p-4 text-sm">
+            <p className="font-semibold text-secondary mb-1">デモモードで動作中</p>
+            <p className="text-text-muted">
+              サーバー未接続のため、データはこのブラウザ内にのみ保存されます。
+              テーブル表示と幹事リモコンを同じブラウザの別タブで開くと連携を体験できます。
+              騒音メーターもブラウザ内で解析され、音声は端末から送信されません。
+            </p>
           </div>
         )}
 

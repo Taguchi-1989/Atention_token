@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { Wine, Settings2, Mic, MicOff, Volume2, Gauge, Activity } from 'lucide-react';
 import {
-  fetchTbSession, fetchTbAlerts, tbMetricsWsUrl,
+  fetchTbSession, fetchTbAlerts, tbMetricsWsUrl, isDemoMode, ingestDemoMetric,
   TbSession, TbAlert, TbAnalysis, NOISE_LABELS,
 } from '@/lib/talkbalancer';
 
@@ -26,6 +26,7 @@ export default function TableDisplayPage() {
   const [analysis, setAnalysis] = useState<TbAnalysis | null>(null);
   const [measuring, setMeasuring] = useState(false);
   const [micError, setMicError] = useState<string | null>(null);
+  const [demo, setDemo] = useState(false);
 
   const seqRef = useRef(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -63,6 +64,7 @@ export default function TableDisplayPage() {
         const s = await fetchTbSession();
         if (stopped) return;
         setSession(s.session);
+        setDemo(isDemoMode());
         seqRef.current = s.seq; // 起動前の過去アラートは表示しない
       } catch {
         if (!stopped) setSession(null);
@@ -123,6 +125,28 @@ export default function TableDisplayPage() {
       ctx.createMediaStreamSource(stream).connect(analyser);
       const buf = new Float32Array(analyser.fftSize);
 
+      const readMetric = () => {
+        analyser.getFloatTimeDomainData(buf);
+        let sum = 0;
+        let peak = 0;
+        for (let i = 0; i < buf.length; i++) {
+          const v = buf[i];
+          sum += v * v;
+          const a = Math.abs(v);
+          if (a > peak) peak = a;
+        }
+        return { rms: Math.min(1, Math.sqrt(sum / buf.length)), peak: Math.min(1, peak) };
+      };
+
+      // デモモード：サーバーなしでブラウザ内解析（音声は端末から出ない）
+      if (isDemoMode()) {
+        sendTimer.current = setInterval(() => {
+          setAnalysis(ingestDemoMetric(readMetric().rms));
+        }, METRIC_SEND_MS);
+        setMeasuring(true);
+        return;
+      }
+
       const ws = new WebSocket(tbMetricsWsUrl());
       wsRef.current = ws;
       ws.onmessage = (ev) => {
@@ -136,18 +160,8 @@ export default function TableDisplayPage() {
 
       ws.onopen = () => {
         sendTimer.current = setInterval(() => {
-          analyser.getFloatTimeDomainData(buf);
-          let sum = 0;
-          let peak = 0;
-          for (let i = 0; i < buf.length; i++) {
-            const v = buf[i];
-            sum += v * v;
-            const a = Math.abs(v);
-            if (a > peak) peak = a;
-          }
-          const rms = Math.min(1, Math.sqrt(sum / buf.length));
           if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ rms, peak: Math.min(1, peak) }));
+            ws.send(JSON.stringify(readMetric()));
           }
         }, METRIC_SEND_MS);
         setMeasuring(true);
@@ -192,6 +206,11 @@ export default function TableDisplayPage() {
         <span className="inline-flex items-center gap-2">
           <Wine size={18} className="text-primary" />
           <span className="font-semibold text-white">{session?.title ?? 'TalkBalancer'}</span>
+          {demo && (
+            <span className="rounded-full border border-secondary/60 bg-secondary/10 px-2 py-0.5 text-xs text-secondary">
+              デモモード
+            </span>
+          )}
         </span>
         <span>{session ? MODE_LABELS[session.mode] : ''}</span>
       </header>

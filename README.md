@@ -4,6 +4,18 @@
 
 Attention Ledger sends a simulated first-time user (an LLM agent) to complete tasks on a web interface. The number of tokens the agent consumes while navigating and reasoning is used as a proxy for **cognitive complexity**: a confusing UI costs more tokens than a clear one. Compare two versions of the same screen and you get an objective, reproducible usability delta.
 
+このリポジトリには、飲み会の会話バランスを整えるサブプロジェクト **[TalkBalancer](docs/talkbalancer/README.md)** も含まれています。
+
+---
+
+## Live Demo (GitHub Pages)
+
+UI は GitHub Pages で公開されています（main ブランチへの push で自動デプロイ）:
+
+**<https://taguchi-1989.github.io/Atention_token/>**
+
+GitHub Pages 版にはバックエンド（FastAPI）が無いため、Attention Ledger のダッシュボードは接続エラー表示になりますが、**TalkBalancer はデモモードで完全に動作します**（データは localStorage のみ・音声は端末外に出ません）。テーブル表示と幹事リモコンを同じブラウザの別タブで開くと連携を体験できます。フル機能はローカル実行（下記 Quick Start）で利用してください。
+
 ---
 
 ## Why it works
@@ -218,4 +230,4 @@ attention-ledger/
 
 ## License
 
-MIT
+[Apache License 2.0](LICENSE)
