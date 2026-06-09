@@ -119,3 +119,87 @@ class TestAlerts:
         res = client.get("/api/talkbalancer/alerts")
         assert res.json()["alerts"] == []
         assert res.json()["seq"] == 0
+
+
+class TestMetricsAndAnalysis:
+    """F-07 音量・騒音解析 / Step 3 WebSocket / Step 4 会話密度メーター。"""
+
+    def test_analysis_empty(self):
+        res = client.get("/api/talkbalancer/analysis")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["samples"] == 0
+        assert body["noiseCategory"] == "quiet"
+        assert body["comfortScore"] == 100
+
+    def test_metrics_require_session(self):
+        res = client.post("/api/talkbalancer/metrics", json={"rms": 0.05})
+        assert res.status_code == 409
+
+    def test_metrics_validation(self):
+        client.post("/api/talkbalancer/session", json={})
+        res = client.post("/api/talkbalancer/metrics", json={"rms": 1.5})
+        assert res.status_code == 422
+
+    def test_rest_metrics_analysis(self):
+        client.post("/api/talkbalancer/session", json={})
+        # 静かなフレームを送る
+        for _ in range(5):
+            res = client.post("/api/talkbalancer/metrics", json={"rms": 0.005, "peak": 0.01})
+        body = res.json()
+        assert body["samples"] == 5
+        assert body["noiseCategory"] == "quiet"
+        assert body["comfortScore"] == 100
+        # 大きめの音（直近5秒平均で判定されるため複数フレーム送る）
+        for _ in range(20):
+            res = client.post("/api/talkbalancer/metrics", json={"rms": 0.3, "peak": 0.5})
+        body = res.json()
+        assert body["noiseCategory"] in ("loud", "very_loud")
+        assert body["comfortScore"] < 100
+        # 会話密度: 大きいフレームは発話扱い
+        assert body["speechDensity1m"] > 0
+
+    def test_session_reset_clears_metrics(self):
+        client.post("/api/talkbalancer/session", json={})
+        client.post("/api/talkbalancer/metrics", json={"rms": 0.1})
+        client.post("/api/talkbalancer/session", json={"title": "reset"})
+        res = client.get("/api/talkbalancer/analysis")
+        assert res.json()["samples"] == 0
+
+    def test_websocket_roundtrip(self):
+        client.post("/api/talkbalancer/session", json={})
+        with client.websocket_connect("/api/talkbalancer/ws/metrics") as ws:
+            ws.send_json({"rms": 0.05, "peak": 0.1})
+            data = ws.receive_json()
+            assert data["samples"] == 1
+            assert "comfortScore" in data
+            ws.send_json({"rms": "bad"})
+            assert "error" in ws.receive_json()
+            ws.send_json({"rms": 0.05})
+            assert ws.receive_json()["samples"] == 2
+
+    def test_websocket_requires_session(self):
+        with client.websocket_connect("/api/talkbalancer/ws/metrics") as ws:
+            data = ws.receive_json()
+            assert "error" in data
+
+    def test_auto_too_loud_alert(self, monkeypatch):
+        """騒音が30秒続いたら too_loud の自動アラートが1回だけ出る。"""
+        from attention_ledger.api import talkbalancer as tb
+
+        client.post("/api/talkbalancer/session", json={})
+        now = 1000.0
+        with tb._lock:
+            for i in range(40):  # 40秒ぶんの大音量フレーム
+                tb._ingest_metric_locked(tb.MetricIn(rms=0.3, peak=0.5), now + i)
+        res = client.get("/api/talkbalancer/alerts")
+        autos = [a for a in res.json()["alerts"] if a["source"] == "auto"]
+        assert len(autos) == 1
+        assert autos[0]["type"] == "too_loud"
+        # クールダウン中は再発行されない
+        with tb._lock:
+            for i in range(40, 80):
+                tb._ingest_metric_locked(tb.MetricIn(rms=0.3, peak=0.5), now + i)
+        res = client.get("/api/talkbalancer/alerts")
+        autos = [a for a in res.json()["alerts"] if a["source"] == "auto"]
+        assert len(autos) == 1

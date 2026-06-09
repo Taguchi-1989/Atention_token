@@ -77,6 +77,44 @@ export async function fetchTbAlerts(after: number): Promise<{ alerts: TbAlert[];
   return res.json();
 }
 
+// F-07 / Step 4: サーバー解析結果
+export type NoiseCategory = 'quiet' | 'normal' | 'loud' | 'very_loud';
+
+export interface TbAnalysis {
+  active: boolean;
+  samples: number;
+  noiseLevel: number;       // 0..1 直近5秒平均RMS
+  noiseDb: number;          // dBFS相当
+  noiseCategory: NoiseCategory;
+  noiseFloor: number;
+  speechDensity1m: number;  // 0..1 直近1分の会話密度
+  speechDensity5m: number;
+  comfortScore: number;     // 0..100 会話しやすさ
+  seq?: number;
+}
+
+export const NOISE_LABELS: Record<NoiseCategory, string> = {
+  quiet: '低め',
+  normal: '普通',
+  loud: '高め',
+  very_loud: 'かなり高め',
+};
+
+export async function fetchTbAnalysis(): Promise<TbAnalysis> {
+  const res = await fetch(`${TB}/analysis`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Failed to fetch analysis');
+  return res.json();
+}
+
+// Step 3: 音声メトリクス送信用 WebSocket の URL（音声波形は送らない）
+export function tbMetricsWsUrl(): string {
+  if (API_BASE_URL.startsWith('http')) {
+    return `${API_BASE_URL.replace(/^http/, 'ws')}/talkbalancer/ws/metrics`;
+  }
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${window.location.host}${API_BASE_URL}/talkbalancer/ws/metrics`;
+}
+
 // F-05 幹事リモコンのボタン定義
 export const REMOTE_BUTTONS: { type: AlertType; label: string; emoji: string }[] = [
   { type: 'talk_too_much', label: '話しすぎ', emoji: '🗣️' },

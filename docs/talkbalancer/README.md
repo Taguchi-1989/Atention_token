@@ -14,15 +14,23 @@
 
 ## 実装状況
 
-ロードマップ **Step 1（手動アラートMVP）** 実装済み。既存の Attention Ledger 基盤（FastAPI + Next.js 静的書き出し）に同居する形で動作する。
+ロードマップ **Step 1〜4** 実装済み。既存の Attention Ledger 基盤（FastAPI + Next.js 静的書き出し）に同居する形で動作する。
 
 | 種別 | 場所 | 内容 |
 | --- | --- | --- |
-| API | `python/attention_ledger/api/talkbalancer.py` | `/api/talkbalancer/*` — セッション管理・幹事アラート（メモリ内のみ、録音/永続化なし） |
+| API | `python/attention_ledger/api/talkbalancer.py` | `/api/talkbalancer/*` — セッション管理・幹事アラート・騒音解析（メモリ内のみ、録音/永続化なし） |
+| WebSocket | 同上 `/api/talkbalancer/ws/metrics` | テーブル端末からの音量メトリクス受信と解析結果の返送（Step 3） |
 | 画面 | `src/app/talkbalancer/` | ホーム / 開始前宣言 / 同意確認 / テーブル表示 / 幹事リモコン / マイク接続確認 |
-| テスト | `python/tests/test_talkbalancer.py` | セッションライフサイクル・アラート文言・ポーリング |
+| テスト | `python/tests/test_talkbalancer.py` | セッション・アラート・解析計算・WebSocket・自動アラート |
 
-利用フロー: `/talkbalancer` → 開始前宣言 → 同意確認（モード選択）→ テーブル表示（テーブル中央に設置）。幹事は別端末で `/talkbalancer/remote` を開いてアラートを送る。マイク接続確認（`/talkbalancer/mic`）は Web Audio API による入力レベル表示のみで録音しない（Step 2 の一部を先行実装）。
+利用フロー: `/talkbalancer` → 開始前宣言 → 同意確認（モード選択）→ テーブル表示（テーブル中央に設置）。幹事は別端末で `/talkbalancer/remote` を開いてアラートを送る。マイク接続確認（`/talkbalancer/mic`）は Web Audio API による入力レベル表示のみで録音しない（Step 2）。
+
+テーブル表示の「騒音メーターを開始」を押すと、端末がマイクの RMS/ピークを1秒ごとに集計して WebSocket でサーバーへ送り（**音声波形は端末外に出ない**）、サーバーが以下を返して画面に表示する（Step 3/4・F-07）:
+
+- 店内音量（低め／普通／高め／かなり高め）
+- 会話しやすさスコア（0〜100点）
+- 会話密度（直近1分／5分の発話フレーム比率。騒音フロアは直近5分の10パーセンタイルから自動推定）
+- 騒音が30秒以上続いた場合の自動 too_loud アラート（5分に1回まで、`source: "auto"`）
 
 ## 要点サマリ
 
