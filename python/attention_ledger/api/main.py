@@ -671,6 +671,11 @@ async def run_demo():
 
 app.include_router(api, prefix="/api")
 
+# TalkBalancer (docs/talkbalancer/REQUIREMENTS_v0.2.md — Step 1 手動アラートMVP)
+from attention_ledger.api.talkbalancer import router as talkbalancer_router  # noqa: E402
+
+app.include_router(talkbalancer_router, prefix="/api")
+
 
 # ═══════════════════════════════════════════
 # Static file serving (Next.js export)

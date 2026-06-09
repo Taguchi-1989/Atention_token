@@ -12,6 +12,18 @@
 | --- | --- |
 | [REQUIREMENTS_v0.2.md](./REQUIREMENTS_v0.2.md) | 要件定義書 v0.2（現行版）。携帯/iPad＋USB-Cマイクで配布、自宅PCで処理、将来ラズパイ化・EC2化の整合を取った版 |
 
+## 実装状況
+
+ロードマップ **Step 1（手動アラートMVP）** 実装済み。既存の Attention Ledger 基盤（FastAPI + Next.js 静的書き出し）に同居する形で動作する。
+
+| 種別 | 場所 | 内容 |
+| --- | --- | --- |
+| API | `python/attention_ledger/api/talkbalancer.py` | `/api/talkbalancer/*` — セッション管理・幹事アラート（メモリ内のみ、録音/永続化なし） |
+| 画面 | `src/app/talkbalancer/` | ホーム / 開始前宣言 / 同意確認 / テーブル表示 / 幹事リモコン / マイク接続確認 |
+| テスト | `python/tests/test_talkbalancer.py` | セッションライフサイクル・アラート文言・ポーリング |
+
+利用フロー: `/talkbalancer` → 開始前宣言 → 同意確認（モード選択）→ テーブル表示（テーブル中央に設置）。幹事は別端末で `/talkbalancer/remote` を開いてアラートを送る。マイク接続確認（`/talkbalancer/mic`）は Web Audio API による入力レベル表示のみで録音しない（Step 2 の一部を先行実装）。
+
 ## 要点サマリ
 
 - **中心価値**: 音声AIではなく「酒が入る前のルール宣言」と「人間が言いにくい注意の丁重な代弁」

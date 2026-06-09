@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Play, History, Settings, Zap, ListChecks, FlaskConical } from 'lucide-react';
+import { LayoutDashboard, Play, History, Settings, Zap, ListChecks, FlaskConical, Wine } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export default function DashboardLayout({
@@ -31,6 +31,7 @@ export default function DashboardLayout({
           <NavItem href="/ledger" icon={<History size={20} />} label="実行台帳" />
           <NavItem href="/results" icon={<FlaskConical size={20} />} label="実験結果" />
           <NavItem href="/settings" icon={<Settings size={20} />} label="設定" />
+          <NavItem href="/talkbalancer" icon={<Wine size={20} />} label="TalkBalancer" />
         </nav>
 
         <div className="text-xs text-text-muted text-center mt-4">
