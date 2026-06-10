@@ -22,6 +22,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Enable GitHub Pages (Source: GitHub Actions)
+        # リポジトリ設定で Pages が未有効でも、初回実行時に自動で有効化する
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
