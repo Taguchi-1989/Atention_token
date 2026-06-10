@@ -1,0 +1,42 @@
+# TalkBalancer
+
+飲み会・懇親会・社内交流会で、**話しすぎ・うるさすぎ・言いすぎ**を、場の空気を壊さず整えるアプリのドキュメント置き場。
+
+> 飲み会に、やさしいブレーキを。
+
+本リポジトリ（Attention Ledger）と同じく「人を評価せず、場の構造を整える」思想のプロダクトであり、技術スタック（Next.js + FastAPI + WebSocket + SQLite）も共通基盤を想定している。
+
+## ドキュメント
+
+| ファイル | 内容 |
+| --- | --- |
+| [REQUIREMENTS_v0.2.md](./REQUIREMENTS_v0.2.md) | 要件定義書 v0.2（現行版）。携帯/iPad＋USB-Cマイクで配布、自宅PCで処理、将来ラズパイ化・EC2化の整合を取った版 |
+
+## 実装状況
+
+ロードマップ **Step 1〜4** 実装済み。既存の Attention Ledger 基盤（FastAPI + Next.js 静的書き出し）に同居する形で動作する。
+
+| 種別 | 場所 | 内容 |
+| --- | --- | --- |
+| API | `python/attention_ledger/api/talkbalancer.py` | `/api/talkbalancer/*` — セッション管理・幹事アラート・騒音解析（メモリ内のみ、録音/永続化なし） |
+| WebSocket | 同上 `/api/talkbalancer/ws/metrics` | テーブル端末からの音量メトリクス受信と解析結果の返送（Step 3） |
+| 画面 | `src/app/talkbalancer/` | ホーム / 開始前宣言 / 同意確認 / テーブル表示 / 幹事リモコン / マイク接続確認 |
+| テスト | `python/tests/test_talkbalancer.py` | セッション・アラート・解析計算・WebSocket・自動アラート |
+
+利用フロー: `/talkbalancer` → 開始前宣言 → 同意確認（モード選択）→ テーブル表示（テーブル中央に設置）。幹事は別端末で `/talkbalancer/remote` を開いてアラートを送る。マイク接続確認（`/talkbalancer/mic`）は Web Audio API による入力レベル表示のみで録音しない（Step 2）。
+
+テーブル表示の「騒音メーターを開始」を押すと、端末がマイクの RMS/ピークを1秒ごとに集計して WebSocket でサーバーへ送り（**音声波形は端末外に出ない**）、サーバーが以下を返して画面に表示する（Step 3/4・F-07）:
+
+- 店内音量（低め／普通／高め／かなり高め）
+- 会話しやすさスコア（0〜100点）
+- 会話密度（直近1分／5分の発話フレーム比率。騒音フロアは直近5分の10パーセンタイルから自動推定）
+- 騒音が30秒以上続いた場合の自動 too_loud アラート（5分に1回まで、`source: "auto"`）
+
+## 要点サマリ
+
+- **中心価値**: 音声AIではなく「酒が入る前のルール宣言」と「人間が言いにくい注意の丁重な代弁」
+- **標準構成**: iPad/Androidスマホ ＋ USB-C会議用マイク ＋ 自宅PC Local Server
+- **MVP (Step 1)**: 開始前宣言・幹事リモコン・丁重アラート表示・テーブル表示（録音なし・文字起こしなし）
+- **プライバシー初期設定**: 録音保存 OFF / 文字起こし OFF / クラウド送信 OFF
+- **マイク第1候補**: Jabra Speak2 55 / Anker PowerConf S3
+- **将来展開**: Raspberry Pi 版「TalkBalancer Box」→ EC2/GPU クラウド版
