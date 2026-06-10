@@ -18,12 +18,14 @@
 
 | 種別 | 場所 | 内容 |
 | --- | --- | --- |
-| API | `python/attention_ledger/api/talkbalancer.py` | `/api/talkbalancer/*` — セッション管理・幹事アラート・騒音解析（メモリ内のみ、録音/永続化なし） |
+| API | `python/attention_ledger/api/talkbalancer.py` | `/api/talkbalancer/*` — セッション管理・幹事アラート・騒音解析・終了前レポート（メモリ内のみ、録音/永続化なし） |
 | WebSocket | 同上 `/api/talkbalancer/ws/metrics` | テーブル端末からの音量メトリクス受信と解析結果の返送（Step 3） |
-| 画面 | `src/app/talkbalancer/` | ホーム / 開始前宣言 / 同意確認 / テーブル表示 / 幹事リモコン / マイク接続確認 |
-| テスト | `python/tests/test_talkbalancer.py` | セッション・アラート・解析計算・WebSocket・自動アラート |
+| 画面 | `src/app/talkbalancer/` | ホーム / 開始前宣言 / 同意確認 / テーブル表示 / 幹事リモコン / マイク接続確認 / 終了レポート |
+| テスト | `python/tests/test_talkbalancer.py` | セッション・アラート・解析計算・WebSocket・自動アラート・終了前レポート |
 
 利用フロー: `/talkbalancer` → 開始前宣言 → 同意確認（モード選択）→ テーブル表示（テーブル中央に設置）。幹事は別端末で `/talkbalancer/remote` を開いてアラートを送る。マイク接続確認（`/talkbalancer/mic`）は Web Audio API による入力レベル表示のみで録音しない（Step 2）。
+
+終了前に `/talkbalancer/report` を開くと、開催中セッションのアラート内訳・直近表示・騒音解析の状態を確認できる。レポートは保存ファイルではなくメモリ内状態から都度生成され、セッション終了時にアラートとメトリクスは削除される。
 
 テーブル表示の「騒音メーターを開始」を押すと、端末がマイクの RMS/ピークを1秒ごとに集計して WebSocket でサーバーへ送り（**音声波形は端末外に出ない**）、サーバーが以下を返して画面に表示する（Step 3/4・F-07）:
 

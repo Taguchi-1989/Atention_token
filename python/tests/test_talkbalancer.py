@@ -121,6 +121,47 @@ class TestAlerts:
         assert res.json()["seq"] == 0
 
 
+class TestReport:
+    """終了前に確認する一時レポート。終了後は残らない。"""
+
+    def test_report_without_session(self):
+        res = client.get("/api/talkbalancer/report")
+        assert res.status_code == 200
+        assert res.json() == {"active": False, "session": None}
+
+    def test_report_summarizes_active_session(self):
+        client.post("/api/talkbalancer/session", json={"title": "送別会"})
+        client.post("/api/talkbalancer/alerts", json={"type": "too_loud"})
+        client.post("/api/talkbalancer/alerts", json={"type": "sensitive_topic"})
+        client.post("/api/talkbalancer/metrics", json={"rms": 0.12, "peak": 0.2})
+
+        res = client.get("/api/talkbalancer/report")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["active"] is True
+        assert body["session"]["title"] == "送別会"
+        assert body["totalAlerts"] == 2
+        assert body["manualAlerts"] == 2
+        assert body["autoAlerts"] == 0
+        assert body["alertCounts"]["too_loud"] == 1
+        assert body["alertCounts"]["sensitive_topic"] == 1
+        assert len(body["latestAlerts"]) == 2
+        assert body["analysis"]["samples"] == 1
+        assert body["privacy"] == {
+            "recording": False,
+            "transcription": False,
+            "cloudUpload": False,
+            "savePolicy": "none",
+        }
+
+    def test_report_deleted_after_end_session(self):
+        client.post("/api/talkbalancer/session", json={})
+        client.post("/api/talkbalancer/alerts", json={"type": "too_loud"})
+        client.delete("/api/talkbalancer/session")
+        res = client.get("/api/talkbalancer/report")
+        assert res.json() == {"active": False, "session": None}
+
+
 class TestMetricsAndAnalysis:
     """F-07 音量・騒音解析 / Step 3 WebSocket / Step 4 会話密度メーター。"""
 

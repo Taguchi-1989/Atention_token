@@ -171,6 +171,49 @@ def list_alerts(after: int = 0):
         return {"alerts": items, "seq": _seq, "active": _session is not None}
 
 
+@router.get("/report")
+def get_report():
+    """終了前に確認する一時レポート（録音・文字起こし・永続保存なし）。
+
+    セッション終了 API は全データを破棄するため、このレポートも開催中の
+    メモリ状態から都度生成する。
+    """
+    with _lock:
+        if _session is None:
+            return {"active": False, "session": None}
+
+        now = time.time()
+        started = datetime.fromisoformat(_session.startedAt)
+        duration = max(0, int(now - started.timestamp()))
+        counts = {t: 0 for t in _ALERT_MESSAGES}
+        manual = 0
+        auto = 0
+        for alert in _alerts:
+            counts[alert.type] = counts.get(alert.type, 0) + 1
+            if alert.source == "auto":
+                auto += 1
+            else:
+                manual += 1
+
+        return {
+            "active": True,
+            "session": _session,
+            "durationSec": duration,
+            "totalAlerts": len(_alerts),
+            "manualAlerts": manual,
+            "autoAlerts": auto,
+            "alertCounts": counts,
+            "latestAlerts": list(_alerts)[-5:],
+            "analysis": _compute_analysis_locked(now),
+            "privacy": {
+                "recording": False,
+                "transcription": False,
+                "cloudUpload": False,
+                "savePolicy": "none",
+            },
+        }
+
+
 # ════════════════════════════════════════════════════════
 # F-07 音量・騒音解析 ＋ Step 3 Local Server 連携（WebSocket）
 # ＋ Step 4 騒音・会話密度メーター

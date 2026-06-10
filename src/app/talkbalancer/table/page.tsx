@@ -288,6 +288,9 @@ export default function TableDisplayPage() {
         <span className="font-mono">
           録音保存：OFF ／ 文字起こし：OFF ／ クラウド送信：OFF
         </span>
+        <Link href="/talkbalancer/report" className="inline-flex items-center gap-1 hover:text-white">
+          <Activity size={14} /> レポート
+        </Link>
         <Link href="/talkbalancer" className="inline-flex items-center gap-1 hover:text-white">
           <Settings2 size={14} /> 管理
         </Link>

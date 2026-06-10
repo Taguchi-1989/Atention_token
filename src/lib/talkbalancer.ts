@@ -59,6 +59,24 @@ export interface TbAnalysis {
   seq?: number;
 }
 
+export interface TbReport {
+  active: boolean;
+  session: TbSession | null;
+  durationSec?: number;
+  totalAlerts?: number;
+  manualAlerts?: number;
+  autoAlerts?: number;
+  alertCounts?: Record<AlertType, number>;
+  latestAlerts?: TbAlert[];
+  analysis?: TbAnalysis;
+  privacy?: {
+    recording: boolean;
+    transcription: boolean;
+    cloudUpload: boolean;
+    savePolicy: 'none';
+  };
+}
+
 export const NOISE_LABELS: Record<NoiseCategory, string> = {
   quiet: '低め',
   normal: '普通',
@@ -138,6 +156,13 @@ export async function fetchTbAnalysis(): Promise<TbAnalysis> {
   const res = await tbFetch('/analysis', { cache: 'no-store' });
   if (!res) return demo.ingestLocalMetric(0);
   if (!res.ok) throw new Error('Failed to fetch analysis');
+  return res.json();
+}
+
+export async function fetchTbReport(): Promise<TbReport> {
+  const res = await tbFetch('/report', { cache: 'no-store' });
+  if (!res) return demo.getReport();
+  if (!res.ok) throw new Error('Failed to fetch report');
   return res.json();
 }
 

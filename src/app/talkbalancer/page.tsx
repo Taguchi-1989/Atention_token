@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Wine, Megaphone, MonitorSpeaker, Mic, ScrollText, Trash2, ArrowLeft } from 'lucide-react';
+import { Wine, Megaphone, MonitorSpeaker, Mic, ScrollText, Trash2, ArrowLeft, BarChart3 } from 'lucide-react';
 import { fetchTbSession, endTbSession, isDemoMode, SessionState } from '@/lib/talkbalancer';
 
 const MODE_LABELS: Record<string, string> = {
@@ -93,6 +93,8 @@ export default function TalkBalancerHome() {
             title="幹事リモコン" desc="幹事のスマホから丁重アラートを送ります" />
           <MenuLink href="/talkbalancer/mic" icon={<Mic size={22} />}
             title="マイク接続確認" desc="USB-Cマイクの認識と入力レベルを確認します" />
+          <MenuLink href="/talkbalancer/report" icon={<BarChart3 size={22} />}
+            title="終了レポート" desc="アラート内訳と騒音メーターの状態を確認します" />
         </nav>
       </div>
     </div>

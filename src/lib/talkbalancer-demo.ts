@@ -7,7 +7,7 @@
 // 簡易移植をブラウザ内で行う。データは端末外に一切送信されない。
 
 import type {
-  TbSession, TbAlert, TbAnalysis, SessionState, SessionMode, AlertType, NoiseCategory,
+  TbSession, TbAlert, TbAnalysis, TbReport, SessionState, SessionMode, AlertType, NoiseCategory,
 } from './talkbalancer';
 
 const KEY = 'talkbalancer_demo_v1';
@@ -118,9 +118,7 @@ function category(level: number): NoiseCategory {
   return 'very_loud';
 }
 
-export function ingestLocalMetric(rms: number): TbAnalysis {
-  const now = Date.now() / 1000;
-  metricBuf.push({ t: now, rms });
+function computeAnalysis(now: number): TbAnalysis {
   while (metricBuf.length && metricBuf[0].t < now - WINDOW_SEC) metricBuf.shift();
 
   const rmsSorted = metricBuf.map((m) => m.rms).sort((a, b) => a - b);
@@ -161,5 +159,46 @@ export function ingestLocalMetric(rms: number): TbAnalysis {
     speechDensity1m: d1,
     speechDensity5m: density(300),
     comfortScore: Math.max(0, Math.min(100, 100 - noisePenalty - silencePenalty)),
+  };
+}
+
+export function ingestLocalMetric(rms: number): TbAnalysis {
+  const now = Date.now() / 1000;
+  metricBuf.push({ t: now, rms });
+  return computeAnalysis(now);
+}
+
+export function getReport(): TbReport {
+  const s = load();
+  if (!s.session) return { active: false, session: null };
+
+  const counts = Object.keys(MESSAGES).reduce((acc, type) => {
+    acc[type as AlertType] = 0;
+    return acc;
+  }, {} as Record<AlertType, number>);
+  let manual = 0;
+  let auto = 0;
+  for (const alert of s.alerts) {
+    counts[alert.type] += 1;
+    if (alert.source === 'auto') auto += 1;
+    else manual += 1;
+  }
+
+  return {
+    active: true,
+    session: s.session,
+    durationSec: Math.max(0, Math.floor(Date.now() / 1000 - new Date(s.session.startedAt).getTime() / 1000)),
+    totalAlerts: s.alerts.length,
+    manualAlerts: manual,
+    autoAlerts: auto,
+    alertCounts: counts,
+    latestAlerts: s.alerts.slice(-5),
+    analysis: computeAnalysis(Date.now() / 1000),
+    privacy: {
+      recording: false,
+      transcription: false,
+      cloudUpload: false,
+      savePolicy: 'none',
+    },
   };
 }
