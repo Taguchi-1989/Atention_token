@@ -206,6 +206,7 @@ export default function Home() {
                         <QuickLink href="/tasks" label="タスク実行" desc="エージェントでシナリオを実行" />
                         <QuickLink href="/sus" label="SUS 評価" desc="ユーザビリティ評価を送信" />
                         <QuickLink href="/ledger" label="実行台帳" desc="実行履歴と監査ログ" />
+                        <QuickLink href="/hermes" label="Hermes" desc="個人環境の速度と証跡を記録" />
                         <QuickLink href="/settings" label="設定" desc="LLM 接続の設定" />
                     </div>
                  </div>

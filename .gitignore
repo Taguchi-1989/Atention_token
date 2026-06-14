@@ -17,6 +17,8 @@ venv/
 # Database
 *.db
 *.sqlite
+python/hermes_artifacts/
+python/hermes_profiles/
 
 # OS
 .DS_Store
