@@ -160,6 +160,8 @@ export async function startTbSession(
 }
 
 export async function endTbSession(): Promise<void> {
+  // 会が終わったら合意フラグも消す（次の会で改めて宣言→合意させる。F-01）
+  clearTbAgreedAt();
   const res = await tbFetch('/session', { method: 'DELETE' });
   if (!res) return demo.endSession();
   if (!res.ok) throw new Error('Failed to end session');
@@ -259,6 +261,14 @@ export function getTbAgreedAt(): string | null {
   try {
     return window.sessionStorage.getItem(AGREED_KEY);
   } catch { return null; }
+}
+
+// F-01 合意ゲート用。セッション終了時に消し、次の会では改めて宣言→合意させる。
+export function clearTbAgreedAt(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(AGREED_KEY);
+  } catch { /* プライベートモード等で削除不可でも動作は継続 */ }
 }
 
 // F-03 マイク選択の端末ローカル保持(deviceIdはブラウザローカルなのでサーバーSessionには載せない)

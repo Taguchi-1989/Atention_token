@@ -126,7 +126,11 @@ export default function TableDisplayPage() {
           audio: saved ? { deviceId: { exact: saved.deviceId } } : true,
         });
       } catch (err) {
-        if (saved && err instanceof DOMException && err.name !== 'NotAllowedError') {
+        // 保存 deviceId が無効（抜去等）なら既定デバイスへフォールバックし保存値を破棄する。
+        // OverconstrainedError は Safari/WebKit で DOMException を継承しないため
+        // instanceof DOMException では判定できない。name で判定し、権限拒否
+        // (NotAllowedError)だけは二重プロンプトを避けて既存の権限エラー表示へ回す。
+        if (saved && err instanceof Error && err.name !== 'NotAllowedError') {
           clearTbMicDevice();
           stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         } else {
