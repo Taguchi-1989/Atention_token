@@ -73,11 +73,13 @@ export function startSession(title: string, mode: SessionMode, agreedAt: string 
     seq: 0,
     alerts: [],
   };
+  resetLocalMetrics(); // サーバー start_session の _reset_metrics_locked() に対応
   save(state);
   return { active: true, session: state.session, seq: 0 };
 }
 
 export function endSession(): void {
+  resetLocalMetrics(); // サーバー end_session の _reset_metrics_locked() に対応
   save({ session: null, seq: 0, alerts: [] });
 }
 
@@ -118,6 +120,13 @@ const AUTO_COOLDOWN_SEC = 300;
 const metricBuf: { t: number; rms: number }[] = [];
 let loudSince: number | null = null;
 let lastAuto = 0;
+
+// サーバー _reset_metrics_locked と同範囲(計測バッファ／騒音継続判定／自動アラートのクールダウン)
+function resetLocalMetrics(): void {
+  metricBuf.length = 0;   // const配列なので length=0 で中身を消す(再代入不可)
+  loudSince = null;
+  lastAuto = 0;
+}
 
 function category(level: number): NoiseCategory {
   if (level < 0.02) return 'quiet';

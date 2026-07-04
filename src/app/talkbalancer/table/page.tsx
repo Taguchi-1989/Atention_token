@@ -29,6 +29,7 @@ export default function TableDisplayPage() {
   const [measuring, setMeasuring] = useState(false);
   const [micError, setMicError] = useState<string | null>(null);
   const [demo, setDemo] = useState(false);
+  const [disconnected, setDisconnected] = useState(false);
 
   const seqRef = useRef(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -118,6 +119,7 @@ export default function TableDisplayPage() {
   // （送るのは RMS/ピークの数値のみ。音声波形は端末外に出ない）
   const startMeasure = useCallback(async () => {
     setMicError(null);
+    setDisconnected(false);
     try {
       const saved = loadTbMicDevice();
       let stream: MediaStream;
@@ -138,6 +140,15 @@ export default function TableDisplayPage() {
         }
       }
       streamRef.current = stream;
+      // F-03: 計測中のマイク切断検知。stopMeasure() の track.stop() では 'ended' は
+      // 発火しないため、ここに来るのは物理切断等のみ。古い stream からの遅延発火は
+      // streamRef の同一性で無視する。
+      const track = stream.getAudioTracks()[0];
+      track?.addEventListener('ended', () => {
+        if (streamRef.current !== stream) return;
+        stopMeasure();
+        setDisconnected(true);
+      });
       const ctx = new AudioContext();
       ctxRef.current = ctx;
       const analyser = ctx.createAnalyser();
@@ -275,34 +286,45 @@ export default function TableDisplayPage() {
       {/* Step 4: 騒音・会話密度メーター（F-04 表示項目） */}
       <section className="mb-4">
         {measuring && analysis ? (
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <Meter
-              icon={<Volume2 size={16} />}
-              label="店内音量"
-              value={<span className={noiseTone}>{NOISE_LABELS[analysis.noiseCategory]}</span>}
-              bar={Math.min(1, analysis.noiseLevel / 0.25)}
-              barClass={analysis.noiseCategory === 'loud' || analysis.noiseCategory === 'very_loud' ? 'bg-warning' : 'bg-primary'}
-            />
-            <Meter
-              icon={<Gauge size={16} />}
-              label="会話しやすさ"
-              value={<>{analysis.comfortScore}<span className="text-sm text-text-muted">点</span></>}
-              bar={analysis.comfortScore / 100}
-              barClass="bg-gradient-to-r from-primary to-success"
-            />
-            <Meter
-              icon={<Activity size={16} />}
-              label="会話密度（1分）"
-              value={<>{Math.round(analysis.speechDensity1m * 100)}<span className="text-sm text-text-muted">%</span></>}
-              bar={analysis.speechDensity1m}
-              barClass="bg-secondary"
-            />
-          </div>
+          <>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <Meter
+                icon={<Volume2 size={16} />}
+                label="店内音量"
+                value={<span className={noiseTone}>{NOISE_LABELS[analysis.noiseCategory]}</span>}
+                bar={Math.min(1, analysis.noiseLevel / 0.25)}
+                barClass={analysis.noiseCategory === 'loud' || analysis.noiseCategory === 'very_loud' ? 'bg-warning' : 'bg-primary'}
+              />
+              <Meter
+                icon={<Gauge size={16} />}
+                label="会話しやすさ"
+                value={<>{analysis.comfortScore}<span className="text-sm text-text-muted">点</span></>}
+                bar={analysis.comfortScore / 100}
+                barClass="bg-gradient-to-r from-primary to-success"
+              />
+              <Meter
+                icon={<Activity size={16} />}
+                label="会話密度（1分）"
+                value={<>{Math.round(analysis.speechDensity1m * 100)}<span className="text-sm text-text-muted">%</span></>}
+                bar={analysis.speechDensity1m}
+                barClass="bg-secondary"
+              />
+            </div>
+            <p className="mt-2 text-center text-[11px] text-text-muted">
+              ※ 会話バランス（話しすぎ・沈黙の傾向）は話者分離が未実装のため、当面は「会話しやすさ」が代替指標です。話しすぎ・沈黙への声かけは幹事リモコンから手動で行えます。
+            </p>
+          </>
         ) : (
           <div className="flex flex-col items-center justify-center gap-3 text-sm">
             <span className="animate-pulse rounded-full border border-warning/60 bg-warning/10 px-3 py-1 text-xs font-semibold text-warning">
               騒音メーター未計測
             </span>
+            {disconnected && (
+              <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+                マイクが切断されました。マイクを接続し直してから、下のボタンで計測を再開してください。
+                <Link href="/talkbalancer/mic" className="ml-1 underline">マイク接続確認へ</Link>
+              </p>
+            )}
             <div className="flex items-center gap-3">
               <button
                 onClick={startMeasure}

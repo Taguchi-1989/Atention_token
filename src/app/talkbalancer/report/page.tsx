@@ -116,6 +116,10 @@ export default function TalkBalancerReportPage() {
         />
       </div>
 
+      <p className="text-xs text-text-muted">
+        ※ F-04 の会話バランススコア・話しすぎ/沈黙傾向・話題ループ候補は話者分離（F-09）の実装後に追加予定です。現在は騒音と沈黙から算出する「会話しやすさ」で代替しています。
+      </p>
+
       <section className="rounded-xl border border-border bg-surface p-5">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
           <BarChart3 size={18} className="text-primary" /> アラート内訳
