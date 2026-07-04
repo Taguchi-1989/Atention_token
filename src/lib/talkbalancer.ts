@@ -25,6 +25,7 @@ export interface TbSession {
   startedAt: string;
   mode: SessionMode;
   savePolicy: 'none';
+  agreedAt?: string | null;
 }
 
 export interface TbAlert {
@@ -143,13 +144,17 @@ export async function fetchTbSession(): Promise<SessionState> {
   return res.json();
 }
 
-export async function startTbSession(title: string, mode: SessionMode): Promise<SessionState> {
+export async function startTbSession(
+  title: string,
+  mode: SessionMode,
+  agreedAt?: string | null,
+): Promise<SessionState> {
   const res = await tbFetch('/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, mode }),
+    body: JSON.stringify({ title, mode, agreedAt: agreedAt ?? null }),
   });
-  if (!res) return demo.startSession(title, mode);
+  if (!res) return demo.startSession(title, mode, agreedAt ?? null);
   if (!res.ok) throw new Error('Failed to start session');
   return res.json();
 }
@@ -228,3 +233,56 @@ export const DECLARATION_LINES = [
   '店内がうるさすぎる場合は、無理に全体会話を続けない',
   'TalkBalancerの表示は、個人攻撃ではなく場を整える合図とします',
 ];
+
+// F-01 合意ゲート用
+const AGREED_KEY = 'tb_agreed_at_v1';
+// F-03 マイク選択の端末ローカル保持(deviceIdはブラウザローカルなのでサーバーSessionには載せない)
+const MIC_DEVICE_KEY = 'tb_mic_device_v1';
+
+export interface TbMicDevice {
+  deviceId: string;
+  label: string;
+  isExternal: boolean;
+}
+
+// F-01 合意ゲート用
+export function setTbAgreedAt(iso: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(AGREED_KEY, iso);
+  } catch { /* プライベートモード等で保存不可でも動作は継続 */ }
+}
+
+// F-01 合意ゲート用
+export function getTbAgreedAt(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.sessionStorage.getItem(AGREED_KEY);
+  } catch { return null; }
+}
+
+// F-03 マイク選択の端末ローカル保持(deviceIdはブラウザローカルなのでサーバーSessionには載せない)
+export function saveTbMicDevice(d: TbMicDevice): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(MIC_DEVICE_KEY, JSON.stringify(d));
+  } catch { /* プライベートモード等で保存不可でも動作は継続 */ }
+}
+
+// F-03 マイク選択の端末ローカル保持(deviceIdはブラウザローカルなのでサーバーSessionには載せない)
+export function loadTbMicDevice(): TbMicDevice | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(MIC_DEVICE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as TbMicDevice;
+  } catch { return null; }
+}
+
+// F-03 マイク選択の端末ローカル保持(deviceIdはブラウザローカルなのでサーバーSessionには載せない)
+export function clearTbMicDevice(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(MIC_DEVICE_KEY);
+  } catch { /* プライベートモード等で保存不可でも動作は継続 */ }
+}

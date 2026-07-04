@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Wine, Settings2, Mic, MicOff, Volume2, Gauge, Activity } from 'lucide-react';
 import {
   fetchTbSession, fetchTbAlerts, tbMetricsWsUrl, isDemoMode, ingestDemoMetric,
+  loadTbMicDevice, clearTbMicDevice,
   TbSession, TbAlert, TbAnalysis, NOISE_LABELS,
 } from '@/lib/talkbalancer';
 import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
@@ -35,6 +36,7 @@ export default function TableDisplayPage() {
   const ctxRef = useRef<AudioContext | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const sendTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoStartRef = useRef(false);
 
   // 画面を常時表示に保つ（Screen Wake Lock）
   useEffect(() => {
@@ -117,7 +119,20 @@ export default function TableDisplayPage() {
   const startMeasure = useCallback(async () => {
     setMicError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const saved = loadTbMicDevice();
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: saved ? { deviceId: { exact: saved.deviceId } } : true,
+        });
+      } catch (err) {
+        if (saved && err instanceof DOMException && err.name !== 'NotAllowedError') {
+          clearTbMicDevice();
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } else {
+          throw err;
+        }
+      }
       streamRef.current = stream;
       const ctx = new AudioContext();
       ctxRef.current = ctx;
@@ -179,6 +194,15 @@ export default function TableDisplayPage() {
 
   useEffect(() => () => stopMeasure(), [stopMeasure]);
 
+  // P1-3: mic確認済み（tb_mic_device_v1 あり）なら table 到着時に自動計測を開始する。
+  // StrictMode の二重effect実行でも二重起動しないよう autoStartRef でガードする。
+  useEffect(() => {
+    if (checked && session && loadTbMicDevice() && !autoStartRef.current) {
+      autoStartRef.current = true;
+      startMeasure();
+    }
+  }, [checked, session, startMeasure]);
+
   if (checked && !session) {
     return (
       <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center gap-6 p-6 text-center">
@@ -215,6 +239,12 @@ export default function TableDisplayPage() {
         </span>
         <span>{session ? MODE_LABELS[session.mode] : ''}</span>
       </header>
+
+      {session && !session.agreedAt && (
+        <p className="mt-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+          開始前宣言の合意が記録されていません。<Link href="/talkbalancer/declaration" className="underline">宣言画面へ</Link>
+        </p>
+      )}
 
       {/* メイン：丁重アラート or 平常時メッセージ */}
       <main className="flex-1 flex items-center justify-center">
@@ -265,14 +295,19 @@ export default function TableDisplayPage() {
             />
           </div>
         ) : (
-          <div className="flex items-center justify-center gap-3 text-sm">
-            <button
-              onClick={startMeasure}
-              className="inline-flex items-center gap-2 rounded-xl border border-primary/50 bg-primary/10 px-5 py-3 text-primary hover:bg-primary/20"
-            >
-              <Mic size={16} /> 騒音メーターを開始（録音はしません）
-            </button>
-            {micError && <span className="text-error">{micError}</span>}
+          <div className="flex flex-col items-center justify-center gap-3 text-sm">
+            <span className="animate-pulse rounded-full border border-warning/60 bg-warning/10 px-3 py-1 text-xs font-semibold text-warning">
+              騒音メーター未計測
+            </span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={startMeasure}
+                className="inline-flex items-center gap-2 rounded-xl border border-primary/50 bg-primary/10 px-5 py-3 text-primary hover:bg-primary/20"
+              >
+                <Mic size={16} /> 騒音メーターを開始（録音はしません）
+              </button>
+              {micError && <span className="text-error">{micError}</span>}
+            </div>
           </div>
         )}
         {measuring && (

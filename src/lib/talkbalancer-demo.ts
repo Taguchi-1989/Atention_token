@@ -57,7 +57,7 @@ export function getSession(): SessionState {
   return { active: s.session !== null, session: s.session, seq: s.seq };
 }
 
-export function startSession(title: string, mode: SessionMode): SessionState {
+export function startSession(title: string, mode: SessionMode, agreedAt: string | null = null): SessionState {
   if (!DEMO_IMPLEMENTED_MODES.includes(mode)) {
     throw new Error(`解析モード '${mode}' は未実装です。現在は volume_only のみ利用できます`);
   }
@@ -68,6 +68,7 @@ export function startSession(title: string, mode: SessionMode): SessionState {
       startedAt: new Date().toISOString(),
       mode,
       savePolicy: 'none',
+      agreedAt,
     },
     seq: 0,
     alerts: [],

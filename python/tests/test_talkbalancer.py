@@ -67,6 +67,28 @@ class TestSessionLifecycle:
         assert res.json()["alerts"] == []
         assert res.json()["seq"] == 0
 
+    def test_start_session_records_agreed_at(self):
+        res = client.post("/api/talkbalancer/session", json={
+            "title": "t", "mode": "volume_only", "agreedAt": "2026-07-04T10:00:00+00:00",
+        })
+        assert res.status_code == 201
+        assert res.json()["session"]["agreedAt"] == "2026-07-04T10:00:00+00:00"
+        res = client.get("/api/talkbalancer/session")
+        assert res.json()["session"]["agreedAt"] == "2026-07-04T10:00:00+00:00"
+
+    def test_start_session_without_agreed_at(self):
+        res = client.post("/api/talkbalancer/session", json={})
+        assert res.status_code == 201
+        assert res.json()["session"]["agreedAt"] is None
+
+    def test_new_session_replaces_agreed_at(self):
+        client.post("/api/talkbalancer/session", json={
+            "title": "t", "mode": "volume_only", "agreedAt": "2026-07-04T10:00:00+00:00",
+        })
+        res = client.post("/api/talkbalancer/session", json={"title": "t2", "mode": "volume_only"})
+        assert res.status_code == 201
+        assert res.json()["session"]["agreedAt"] is None
+
 
 class TestAlerts:
     def test_alert_requires_session(self):

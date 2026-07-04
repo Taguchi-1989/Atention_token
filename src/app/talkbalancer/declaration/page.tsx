@@ -1,12 +1,17 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { DECLARATION_LINES } from '@/lib/talkbalancer';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
+import { DECLARATION_LINES, setTbAgreedAt } from '@/lib/talkbalancer';
 import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
 
 // F-01 開始前宣言
 export default function DeclarationPage() {
+  const router = useRouter();
+  const [agreed, setAgreed] = useState(false);
+
   return (
     <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-2xl space-y-8 text-center">
@@ -29,6 +34,16 @@ export default function DeclarationPage() {
           ))}
         </ul>
 
+        <button
+          onClick={() => setAgreed(!agreed)}
+          className={`mx-auto flex w-full max-w-xl items-center justify-between rounded-xl border p-4 text-left transition-colors ${
+            agreed ? 'border-primary bg-surface-highlight' : 'border-border bg-surface'
+          }`}
+        >
+          <span className="font-semibold">参加者に宣言を共有し、全員が合意しました</span>
+          {agreed && <Check size={18} className="text-primary" />}
+        </button>
+
         <div className="flex items-center justify-center gap-4 pt-4">
           <Link
             href="/talkbalancer"
@@ -36,12 +51,16 @@ export default function DeclarationPage() {
           >
             <ArrowLeft size={18} /> 戻る
           </Link>
-          <Link
-            href="/talkbalancer/consent"
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary px-6 py-3 font-semibold text-black hover:opacity-90"
+          <button
+            disabled={!agreed}
+            onClick={() => {
+              setTbAgreedAt(new Date().toISOString());
+              router.push('/talkbalancer/consent');
+            }}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary px-6 py-3 font-semibold text-black hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             同意確認へ進む <ArrowRight size={18} />
-          </Link>
+          </button>
         </div>
 
         <PrivacyBar mode={null} className="justify-center pt-4" />

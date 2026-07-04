@@ -63,6 +63,8 @@ _ALERT_SEVERITY: dict = {
 class SessionCreate(BaseModel):
     title: str = Field(default="飲み会", max_length=100)
     mode: SessionMode = "volume_only"
+    # F-01 開始前宣言に全員が合意した時刻(ISO8601, クライアント申告)。未指定可
+    agreedAt: Optional[str] = Field(default=None, max_length=40)
 
 
 class Session(BaseModel):
@@ -71,6 +73,7 @@ class Session(BaseModel):
     startedAt: str
     mode: SessionMode
     savePolicy: Literal["none"] = "none"  # MVP は保存なし固定
+    agreedAt: Optional[str] = None
 
 
 class AlertCreate(BaseModel):
@@ -148,6 +151,7 @@ def start_session(body: SessionCreate):
             title=body.title,
             startedAt=_now_iso(),
             mode=body.mode,
+            agreedAt=body.agreedAt,
         )
         _alerts.clear()
         _seq = 0
