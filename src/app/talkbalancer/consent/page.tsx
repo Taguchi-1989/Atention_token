@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
-import { startTbSession, SessionMode } from '@/lib/talkbalancer';
+import { startTbSession, getTbAgreedAt, SessionMode } from '@/lib/talkbalancer';
+import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
 
 // F-02 同意確認：解析モードを選んでからセッションを開始する
 const MODES: { mode: SessionMode; label: string; desc: string; available: boolean }[] = [
@@ -34,13 +35,21 @@ export default function ConsentPage() {
   const [mode, setMode] = useState<SessionMode>('volume_only');
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agreedAt, setAgreedAt] = useState<string | null>(null);
+  const [agreedChecked, setAgreedChecked] = useState(false);
+
+  // hydration不一致回避のため初期描画では判定せず、マウント後にsessionStorageを読む
+  useEffect(() => {
+    setAgreedAt(getTbAgreedAt());
+    setAgreedChecked(true);
+  }, []);
 
   const handleStart = async () => {
     setStarting(true);
     setError(null);
     try {
-      await startTbSession(title || '飲み会', mode);
-      router.push('/talkbalancer/table');
+      await startTbSession(title || '飲み会', mode, agreedAt);
+      router.push('/talkbalancer/mic');
     } catch {
       setError('セッションを開始できませんでした。サーバー接続を確認してください。');
       setStarting(false);
@@ -55,6 +64,15 @@ export default function ConsentPage() {
         </Link>
 
         <h1 className="text-2xl font-bold">同意確認</h1>
+
+        {agreedChecked && !agreedAt && (
+          <p className="rounded-xl border border-warning/40 bg-warning/10 p-4 text-sm text-warning">
+            開始前宣言の合意がまだ記録されていません。先に参加者へ宣言を共有し、合意してから進んでください。
+            {' '}
+            <Link href="/talkbalancer/declaration" className="underline">開始前宣言へ戻る</Link>
+          </p>
+        )}
+
         <p className="text-text-muted text-sm">
           参加者に開始前宣言を見せたうえで、今日の解析モードを選んでください。
         </p>
@@ -90,19 +108,13 @@ export default function ConsentPage() {
           ))}
         </div>
 
-        <div className="rounded-xl border border-border bg-surface p-4 text-sm space-y-1">
-          <p className="font-semibold mb-2">初期設定（常時画面に表示されます）</p>
-          <p>録音保存：<span className="text-success font-mono">OFF</span></p>
-          <p>文字起こし：<span className="text-success font-mono">OFF</span></p>
-          <p>クラウド送信：<span className="text-success font-mono">OFF</span></p>
-          <p className="text-text-muted pt-2">終了時にすべてのデータを削除できます。</p>
-        </div>
+        <PrivacyBar mode={mode} variant="card" />
 
         {error && <p className="text-sm text-error">{error}</p>}
 
         <button
           onClick={handleStart}
-          disabled={starting}
+          disabled={starting || (agreedChecked && !agreedAt)}
           className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary px-6 py-4 font-semibold text-black hover:opacity-90 disabled:opacity-50"
         >
           {starting ? <Loader2 size={18} className="animate-spin" /> : null}

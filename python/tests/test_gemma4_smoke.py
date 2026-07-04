@@ -1,7 +1,16 @@
-"""Smoke test: verify gemma4:e4b responds via OllamaAdapter."""
-import asyncio
+"""Smoke test: verify gemma4:e4b responds via OllamaAdapter.
+
+これらは実際の Ollama エンドポイント（gemma4:e4b）を叩くスモークテスト。
+Ollama サーバーに接続できない環境（CI 等）では失敗ではなくスキップし、
+ローカルにモデルがある時だけ実モデルに対して実行されるようにする。
+"""
+import httpx
 import pytest
 from attention_ledger.core.llm.adapter import OllamaAdapter
+
+# Ollama エンドポイントに到達できないときに投げられる接続系の例外。
+# これらはテスト対象の不具合ではなく実行環境の都合なのでスキップする。
+_CONNECTION_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout)
 
 
 @pytest.mark.asyncio
@@ -16,6 +25,8 @@ async def test_gemma4_e4b_generate():
         assert resp.usage.total_tokens > 0, "No token usage reported"
         print(f"Response: {resp.content[:200]}")
         print(f"Tokens: {resp.usage}")
+    except _CONNECTION_ERRORS as e:
+        pytest.skip(f"Ollama エンドポイントに接続できないためスキップ: {e}")
     finally:
         await adapter.close()
 
@@ -33,5 +44,7 @@ async def test_gemma4_e4b_agent_action():
         )
         assert action.action in ("click", "input", "search", "retry", "done")
         print(f"Action: {action.model_dump_json(indent=2)}")
+    except _CONNECTION_ERRORS as e:
+        pytest.skip(f"Ollama エンドポイントに接続できないためスキップ: {e}")
     finally:
         await adapter.close()

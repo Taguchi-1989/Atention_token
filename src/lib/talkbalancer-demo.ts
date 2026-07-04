@@ -12,6 +12,10 @@ import type {
 
 const KEY = 'talkbalancer_demo_v1';
 
+// backend IMPLEMENTED_MODES と同じ多層防御。デモ経路でも未実装モードは拒否し、
+// UI 無効化だけに頼らない（10.1 プライバシー：表示と実態の乖離を防ぐ）。
+const DEMO_IMPLEMENTED_MODES: SessionMode[] = ['volume_only'];
+
 // サーバー側 _ALERT_MESSAGES と同内容（F-06 丁重アラート文言）
 const MESSAGES: Record<AlertType, string> = {
   talk_too_much: 'お話タイムが少し長めです。\nそろそろ別の人にも振ると、さらに良い場になりそうです。',
@@ -53,7 +57,10 @@ export function getSession(): SessionState {
   return { active: s.session !== null, session: s.session, seq: s.seq };
 }
 
-export function startSession(title: string, mode: SessionMode): SessionState {
+export function startSession(title: string, mode: SessionMode, agreedAt: string | null = null): SessionState {
+  if (!DEMO_IMPLEMENTED_MODES.includes(mode)) {
+    throw new Error(`解析モード '${mode}' は未実装です。現在は volume_only のみ利用できます`);
+  }
   const state: DemoState = {
     session: {
       id: Math.random().toString(36).slice(2, 14),
@@ -61,15 +68,18 @@ export function startSession(title: string, mode: SessionMode): SessionState {
       startedAt: new Date().toISOString(),
       mode,
       savePolicy: 'none',
+      agreedAt,
     },
     seq: 0,
     alerts: [],
   };
+  resetLocalMetrics(); // サーバー start_session の _reset_metrics_locked() に対応
   save(state);
   return { active: true, session: state.session, seq: 0 };
 }
 
 export function endSession(): void {
+  resetLocalMetrics(); // サーバー end_session の _reset_metrics_locked() に対応
   save({ session: null, seq: 0, alerts: [] });
 }
 
@@ -110,6 +120,13 @@ const AUTO_COOLDOWN_SEC = 300;
 const metricBuf: { t: number; rms: number }[] = [];
 let loudSince: number | null = null;
 let lastAuto = 0;
+
+// サーバー _reset_metrics_locked と同範囲(計測バッファ／騒音継続判定／自動アラートのクールダウン)
+function resetLocalMetrics(): void {
+  metricBuf.length = 0;   // const配列なので length=0 で中身を消す(再代入不可)
+  loudSince = null;
+  lastAuto = 0;
+}
 
 function category(level: number): NoiseCategory {
   if (level < 0.02) return 'quiet';
