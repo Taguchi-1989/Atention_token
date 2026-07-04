@@ -7,6 +7,7 @@ import {
   fetchTbSession, fetchTbAlerts, tbMetricsWsUrl, isDemoMode, ingestDemoMetric,
   TbSession, TbAlert, TbAnalysis, NOISE_LABELS,
 } from '@/lib/talkbalancer';
+import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
 
 const POLL_MS = 2000;
 const ALERT_SHOW_MS = 25000;
@@ -285,9 +286,7 @@ export default function TableDisplayPage() {
 
       {/* フッター：プライバシー表示（10.1 常時表示） */}
       <footer className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm text-text-muted">
-        <span className="font-mono">
-          録音保存：OFF ／ 文字起こし：OFF ／ クラウド送信：OFF
-        </span>
+        <PrivacyBar mode={session?.mode ?? null} />
         <Link href="/talkbalancer/report" className="inline-flex items-center gap-1 hover:text-white">
           <Activity size={14} /> レポート
         </Link>

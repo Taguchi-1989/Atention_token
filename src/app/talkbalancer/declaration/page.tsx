@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { DECLARATION_LINES } from '@/lib/talkbalancer';
+import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
 
 // F-01 開始前宣言
 export default function DeclarationPage() {
@@ -42,6 +43,8 @@ export default function DeclarationPage() {
             同意確認へ進む <ArrowRight size={18} />
           </Link>
         </div>
+
+        <PrivacyBar mode={null} className="justify-center pt-4" />
       </div>
     </div>
   );

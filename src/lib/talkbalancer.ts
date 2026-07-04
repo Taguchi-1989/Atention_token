@@ -84,6 +84,32 @@ export const NOISE_LABELS: Record<NoiseCategory, string> = {
   very_loud: 'かなり高め',
 };
 
+// 解析モードの表示ラベル（全画面共通。各ページの局所 MODE_LABELS とは別に共有表示で使う）
+export const TB_MODE_LABELS: Record<SessionMode, string> = {
+  volume_only: 'モードA：音量のみ',
+  balance: 'モードB：音量＋発話バランス',
+  transcript: 'モードC：文字起こしあり',
+};
+
+export interface TbPrivacy {
+  recording: boolean;
+  transcription: boolean;
+  cloudUpload: boolean;
+}
+
+// 解析モードからプライバシー状態を導出する（10.1 常時表示用）。
+// backend の _privacy_for_mode と同一マッピングにすること：
+// transcript のみ録音・文字起こしが ON、それ以外（null/未開始 含む）は全 OFF。
+// クラウド送信はローカル処理前提のため常に false。
+export function derivePrivacy(mode: SessionMode | null | undefined): TbPrivacy {
+  const isTranscript = mode === 'transcript';
+  return {
+    recording: isTranscript,
+    transcription: isTranscript,
+    cloudUpload: false,
+  };
+}
+
 const TB = `${API_BASE_URL}/talkbalancer`;
 
 // ── デモモード判定 ──

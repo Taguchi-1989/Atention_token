@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Wine, Megaphone, MonitorSpeaker, Mic, ScrollText, Trash2, ArrowLeft, BarChart3 } from 'lucide-react';
 import { fetchTbSession, endTbSession, isDemoMode, SessionState } from '@/lib/talkbalancer';
+import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
 
 const MODE_LABELS: Record<string, string> = {
   volume_only: 'モードA：音量のみ',
@@ -79,9 +80,7 @@ export default function TalkBalancerHome() {
           ) : (
             <p className="text-text-muted">セッションは開始されていません。開始前宣言から始めてください。</p>
           )}
-          <p className="mt-3 text-xs text-text-muted">
-            録音保存：OFF ／ 文字起こし：OFF ／ クラウド送信：OFF
-          </p>
+          <PrivacyBar mode={state?.session?.mode ?? null} className="mt-3" />
         </div>
 
         <nav className="grid gap-3">

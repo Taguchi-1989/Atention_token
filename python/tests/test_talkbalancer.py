@@ -44,6 +44,18 @@ class TestSessionLifecycle:
         res = client.post("/api/talkbalancer/session", json={"mode": "spy_mode"})
         assert res.status_code == 422
 
+    def test_unimplemented_mode_rejected(self):
+        """未実装モード(transcript/balance)は 400 で拒否し、セッションを作らない。
+
+        UI 無効化だけに頼らないサーバー側の多層防御（10.1 プライバシー）。
+        404 ではなく 400 を返す（フロントは 404 をデモモード切替に使うため）。
+        """
+        for mode in ("transcript", "balance"):
+            res = client.post("/api/talkbalancer/session", json={"mode": mode})
+            assert res.status_code == 400, mode
+            # セッションは作られていない
+            assert client.get("/api/talkbalancer/session").json()["active"] is False, mode
+
     def test_end_session_deletes_data(self):
         client.post("/api/talkbalancer/session", json={})
         client.post("/api/talkbalancer/alerts", json={"type": "too_loud"})
@@ -160,6 +172,34 @@ class TestReport:
         client.delete("/api/talkbalancer/session")
         res = client.get("/api/talkbalancer/report")
         assert res.json() == {"active": False, "session": None}
+
+    def test_privacy_derived_from_mode(self):
+        """レポートの privacy は解析モードから算出される（ハードコードでない）。"""
+        client.post("/api/talkbalancer/session", json={"mode": "volume_only"})
+        privacy = client.get("/api/talkbalancer/report").json()["privacy"]
+        assert privacy == {
+            "recording": False,
+            "transcription": False,
+            "cloudUpload": False,
+            "savePolicy": "none",
+        }
+
+    def test_privacy_mapping_matches_frontend(self):
+        """_privacy_for_mode はフロント derivePrivacy と同一マッピング。
+
+        transcript は API 経由で開始できない（400 拒否）ため直接呼んで検証し、
+        将来 transcript 解禁時に表示と実態が一致することを担保する。
+        """
+        from attention_ledger.api import talkbalancer as tb
+
+        assert tb._privacy_for_mode("volume_only") == {
+            "recording": False, "transcription": False,
+            "cloudUpload": False, "savePolicy": "none",
+        }
+        assert tb._privacy_for_mode("transcript") == {
+            "recording": True, "transcription": True,
+            "cloudUpload": False, "savePolicy": "none",
+        }
 
 
 class TestMetricsAndAnalysis:

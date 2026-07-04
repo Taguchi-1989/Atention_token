@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
-import { fetchTbSession, sendTbAlert, isDemoMode, REMOTE_BUTTONS, AlertType } from '@/lib/talkbalancer';
+import { fetchTbSession, sendTbAlert, isDemoMode, REMOTE_BUTTONS, AlertType, SessionMode } from '@/lib/talkbalancer';
+import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
 
 // F-05 幹事リモコン
 export default function RemotePage() {
@@ -12,10 +13,11 @@ export default function RemotePage() {
   const [sent, setSent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [demo, setDemo] = useState(false);
+  const [sessionMode, setSessionMode] = useState<SessionMode | null>(null);
 
   useEffect(() => {
     fetchTbSession()
-      .then((s) => { setActive(s.active); setDemo(isDemoMode()); })
+      .then((s) => { setActive(s.active); setSessionMode(s.session?.mode ?? null); setDemo(isDemoMode()); })
       .catch(() => setActive(false));
   }, []);
 
@@ -81,6 +83,8 @@ export default function RemotePage() {
           </div>
         )}
         {error && <p className="text-sm text-error">{error}</p>}
+
+        <PrivacyBar mode={sessionMode} className="pt-2" />
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ import {
   endTbSession, fetchTbReport, isDemoMode, NOISE_LABELS, REMOTE_BUTTONS,
   AlertType, TbReport,
 } from '@/lib/talkbalancer';
+import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
 
 const MODE_LABELS: Record<string, string> = {
   volume_only: 'モードA：音量のみ',
@@ -166,11 +167,7 @@ export default function TalkBalancerReportPage() {
         <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-success">
           <ShieldCheck size={18} /> プライバシー状態
         </h2>
-        <div className="grid gap-2 text-sm sm:grid-cols-3">
-          <p>録音保存：<span className="font-mono text-success">OFF</span></p>
-          <p>文字起こし：<span className="font-mono text-success">OFF</span></p>
-          <p>クラウド送信：<span className="font-mono text-success">OFF</span></p>
-        </div>
+        <PrivacyBar privacy={report.privacy ?? undefined} mode={report.session.mode} />
         <p className="mt-3 text-xs text-text-muted">
           このレポートは開催中セッションのメモリ状態から生成されています。終了するとアラートとメトリクスは削除されます。
         </p>

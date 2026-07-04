@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 import { startTbSession, SessionMode } from '@/lib/talkbalancer';
+import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
 
 // F-02 同意確認：解析モードを選んでからセッションを開始する
 const MODES: { mode: SessionMode; label: string; desc: string; available: boolean }[] = [
@@ -90,13 +91,7 @@ export default function ConsentPage() {
           ))}
         </div>
 
-        <div className="rounded-xl border border-border bg-surface p-4 text-sm space-y-1">
-          <p className="font-semibold mb-2">初期設定（常時画面に表示されます）</p>
-          <p>録音保存：<span className="text-success font-mono">OFF</span></p>
-          <p>文字起こし：<span className="text-success font-mono">OFF</span></p>
-          <p>クラウド送信：<span className="text-success font-mono">OFF</span></p>
-          <p className="text-text-muted pt-2">終了時にすべてのデータを削除できます。</p>
-        </div>
+        <PrivacyBar mode={mode} variant="card" />
 
         {error && <p className="text-sm text-error">{error}</p>}
 

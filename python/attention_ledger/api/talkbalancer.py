@@ -24,6 +24,11 @@ router = APIRouter(prefix="/talkbalancer", tags=["talkbalancer"])
 
 SessionMode = Literal["volume_only", "balance", "transcript"]
 
+# 実装済みの解析モード。balance / transcript を実装したらここへ追加する。
+# 未実装モードは start_session で拒否し（UI 無効化だけに頼らない多層防御）、
+# プライバシー表示と実態が乖離しないようにする（10.1）。
+IMPLEMENTED_MODES: frozenset = frozenset({"volume_only"})
+
 AlertType = Literal[
     "talk_too_much",     # 話しすぎ
     "too_loud",          # うるさすぎ
@@ -108,10 +113,35 @@ def get_session():
         return {"active": True, "session": _session, "seq": _seq}
 
 
+def _privacy_for_mode(mode: SessionMode) -> dict:
+    """解析モードからプライバシー状態を導出する（10.1 常時表示用）。
+
+    フロント derivePrivacy（src/lib/talkbalancer.ts）と同一マッピングにすること：
+    transcript のみ録音・文字起こしが True、それ以外は全 False。
+    クラウド送信はローカル処理前提のため常に False。将来 transcript を実装した
+    瞬間に表示と実態が一致するよう、ハードコードせずモードから算出する。
+    """
+    is_transcript = mode == "transcript"
+    return {
+        "recording": is_transcript,
+        "transcription": is_transcript,
+        "cloudUpload": False,
+        "savePolicy": "none",
+    }
+
+
 @router.post("/session", status_code=201)
 def start_session(body: SessionCreate):
     """セッション開始（F-02 同意確認後に呼ぶ）。既存セッションは置き換える。"""
     global _session, _seq
+    # 未実装モードはサーバー側でも拒否する（UI 無効化だけに依存しない多層防御）。
+    # 404 は使わない：フロント tbFetch が 404 をデモモード切替に使うため、業務
+    # ルール上の拒否は 400 とする。
+    if body.mode not in IMPLEMENTED_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"解析モード '{body.mode}' は未実装です。現在は volume_only のみ利用できます",
+        )
     with _lock:
         _session = Session(
             id=uuid.uuid4().hex[:12],
@@ -205,12 +235,7 @@ def get_report():
             "alertCounts": counts,
             "latestAlerts": list(_alerts)[-5:],
             "analysis": _compute_analysis_locked(now),
-            "privacy": {
-                "recording": False,
-                "transcription": False,
-                "cloudUpload": False,
-                "savePolicy": "none",
-            },
+            "privacy": _privacy_for_mode(_session.mode),
         }
 
 

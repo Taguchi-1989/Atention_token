@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Mic, MicOff, Usb, RefreshCw } from 'lucide-react';
+import { fetchTbSession, SessionMode } from '@/lib/talkbalancer';
+import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
 
 // F-03 USB-Cマイク入力：外部マイク認識・入力レベル表示・接続切断検知
 interface MicDevice {
@@ -21,6 +23,7 @@ export default function MicCheckPage() {
   const [selectedId, setSelectedId] = useState<string>('');
   const [level, setLevel] = useState(0); // 0..1 RMS
   const [status, setStatus] = useState<'idle' | 'listening' | 'denied' | 'error'>('idle');
+  const [sessionMode, setSessionMode] = useState<SessionMode | null>(null);
 
   const streamRef = useRef<MediaStream | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
@@ -93,6 +96,7 @@ export default function MicCheckPage() {
 
   useEffect(() => {
     refreshDevices().catch(() => {});
+    fetchTbSession().then((s) => setSessionMode(s.session?.mode ?? null)).catch(() => {});
     const onChange = () => refreshDevices().catch(() => {});
     navigator.mediaDevices.addEventListener('devicechange', onChange);
     return () => {
@@ -130,7 +134,6 @@ export default function MicCheckPage() {
             )}
           </p>
           <p>入力レベル：<span className={level > 0.05 ? 'text-success' : 'text-text-muted'}>{levelLabel}</span></p>
-          <p>録音保存：<span className="text-success">OFF</span></p>
         </div>
 
         {external.length === 0 && devices.length > 0 && (
@@ -190,6 +193,8 @@ export default function MicCheckPage() {
           {status === 'denied' && <p className="text-sm text-error">マイクの使用が許可されませんでした。ブラウザの設定を確認してください。</p>}
           {status === 'error' && <p className="text-sm text-error">マイクを開けませんでした。接続を確認して再試行してください。</p>}
         </div>
+
+        <PrivacyBar mode={sessionMode} className="pt-2" />
       </div>
     </div>
   );
