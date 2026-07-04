@@ -108,8 +108,11 @@ export default function TableDisplayPage() {
     sendTimer.current = null;
     wsRef.current?.close();
     wsRef.current = null;
-    streamRef.current?.getTracks().forEach((t) => t.stop());
+    // 先に streamRef を無効化してから停止する。仮に track.stop() が同期的に
+    // 'ended' を発火させるブラウザでも、切断リスナーの同一性ガードが確実に効く。
+    const stream = streamRef.current;
     streamRef.current = null;
+    stream?.getTracks().forEach((t) => t.stop());
     ctxRef.current?.close().catch(() => {});
     ctxRef.current = null;
     setMeasuring(false);
@@ -147,6 +150,7 @@ export default function TableDisplayPage() {
       track?.addEventListener('ended', () => {
         if (streamRef.current !== stream) return;
         stopMeasure();
+        setMicError(null); // 切断表示に一本化（前回のサーバー接続エラー等を消す）
         setDisconnected(true);
       });
       const ctx = new AudioContext();
