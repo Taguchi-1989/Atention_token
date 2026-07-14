@@ -3,6 +3,8 @@ import asyncio
 import pytest
 from attention_ledger.core.llm.adapter import OllamaAdapter
 
+pytestmark = pytest.mark.ollama
+
 
 @pytest.mark.asyncio
 async def test_gemma4_e4b_generate():

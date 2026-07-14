@@ -27,6 +27,12 @@ export interface TbSession {
   savePolicy: 'none';
 }
 
+export interface TbParticipant {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface TbAlert {
   seq: number;
   sessionId: string;
@@ -41,6 +47,7 @@ export interface SessionState {
   active: boolean;
   session: TbSession | null;
   seq: number;
+  participants?: TbParticipant[];
 }
 
 // F-07 / Step 4: サーバー解析結果
@@ -69,12 +76,51 @@ export interface TbReport {
   alertCounts?: Record<AlertType, number>;
   latestAlerts?: TbAlert[];
   analysis?: TbAnalysis;
+  speakerStats?: TbSpeakerStats;
+  transcriptNotes?: TbTranscriptNote[];
   privacy?: {
     recording: boolean;
     transcription: boolean;
     cloudUpload: boolean;
     savePolicy: 'none';
   };
+}
+
+export interface TbSpeakerSlice {
+  participantId: string;
+  name: string;
+  color: string;
+  seconds: number;
+  share: number;
+}
+
+export interface TbSpeakerEvent {
+  id: string;
+  sessionId: string;
+  participantId: string;
+  timestamp: string;
+  durationSec: number;
+  source: 'manual' | 'auto';
+}
+
+export interface TbSpeakerStats {
+  active: boolean;
+  participants: TbParticipant[];
+  total: TbSpeakerSlice[];
+  recent5m: TbSpeakerSlice[];
+  totalSeconds: number;
+  recent5mSeconds: number;
+  latestEvent: TbSpeakerEvent | null;
+}
+
+export interface TbTranscriptNote {
+  id: string;
+  sessionId: string;
+  timestamp: string;
+  text: string;
+  participantId: string | null;
+  participantName: string | null;
+  source: 'manual' | 'auto';
 }
 
 export const NOISE_LABELS: Record<NoiseCategory, string> = {
@@ -117,13 +163,22 @@ export async function fetchTbSession(): Promise<SessionState> {
   return res.json();
 }
 
-export async function startTbSession(title: string, mode: SessionMode): Promise<SessionState> {
+export async function startTbSession(
+  title: string,
+  mode: SessionMode,
+  participantNames?: string[],
+): Promise<SessionState> {
   const res = await tbFetch('/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, mode }),
+    body: JSON.stringify({
+      title,
+      mode,
+      participantCount: participantNames?.length,
+      participantNames,
+    }),
   });
-  if (!res) return demo.startSession(title, mode);
+  if (!res) return demo.startSession(title, mode, participantNames);
   if (!res.ok) throw new Error('Failed to start session');
   return res.json();
 }
@@ -154,7 +209,7 @@ export async function fetchTbAlerts(after: number): Promise<{ alerts: TbAlert[];
 
 export async function fetchTbAnalysis(): Promise<TbAnalysis> {
   const res = await tbFetch('/analysis', { cache: 'no-store' });
-  if (!res) return demo.ingestLocalMetric(0);
+  if (!res) return demo.getAnalysis();
   if (!res.ok) throw new Error('Failed to fetch analysis');
   return res.json();
 }
@@ -163,6 +218,74 @@ export async function fetchTbReport(): Promise<TbReport> {
   const res = await tbFetch('/report', { cache: 'no-store' });
   if (!res) return demo.getReport();
   if (!res.ok) throw new Error('Failed to fetch report');
+  return res.json();
+}
+
+export async function fetchTbParticipants(): Promise<{ active: boolean; participants: TbParticipant[] }> {
+  const res = await tbFetch('/participants', { cache: 'no-store' });
+  if (!res) return demo.getParticipants();
+  if (!res.ok) throw new Error('Failed to fetch participants');
+  return res.json();
+}
+
+export async function updateTbParticipants(names: string[]): Promise<{ active: boolean; participants: TbParticipant[] }> {
+  const res = await tbFetch('/participants', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ names }),
+  });
+  if (!res) return demo.updateParticipants(names);
+  if (!res.ok) throw new Error('Failed to update participants');
+  return res.json();
+}
+
+export async function fetchTbSpeakerStats(): Promise<TbSpeakerStats> {
+  const res = await tbFetch('/speaker-stats', { cache: 'no-store' });
+  if (!res) return demo.getSpeakerStats();
+  if (!res.ok) throw new Error('Failed to fetch speaker stats');
+  return res.json();
+}
+
+export async function recordTbSpeakerEvent(participantId: string, durationSec: number = 15): Promise<{ event: TbSpeakerEvent; stats: TbSpeakerStats }> {
+  const res = await tbFetch('/speaker-events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ participantId, durationSec }),
+  });
+  if (!res) return demo.recordSpeakerEvent(participantId, durationSec);
+  if (!res.ok) throw new Error('Failed to record speaker event');
+  return res.json();
+}
+
+export async function recordTbSpeakerBatch(events: { participantId: string; durationSec: number }[]): Promise<{ events: TbSpeakerEvent[]; stats: TbSpeakerStats }> {
+  const res = await tbFetch('/speaker-events/batch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ events }),
+  });
+  if (!res) return demo.recordSpeakerBatch(events);
+  if (!res.ok) throw new Error('Failed to record speaker batch');
+  return res.json();
+}
+
+export async function fetchTbTranscriptNotes(): Promise<{ active: boolean; enabled: boolean; notes: TbTranscriptNote[] }> {
+  const res = await tbFetch('/transcript-notes', { cache: 'no-store' });
+  if (!res) return demo.getTranscriptNotes();
+  if (!res.ok) throw new Error('Failed to fetch transcript notes');
+  return res.json();
+}
+
+export async function createTbTranscriptNote(
+  text: string,
+  participantId?: string,
+): Promise<{ note: TbTranscriptNote; notes: TbTranscriptNote[] }> {
+  const res = await tbFetch('/transcript-notes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, participantId: participantId || undefined }),
+  });
+  if (!res) return demo.createTranscriptNote(text, participantId);
+  if (!res.ok) throw new Error('Failed to create transcript note');
   return res.json();
 }
 

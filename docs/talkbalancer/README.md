@@ -11,21 +11,27 @@
 | ファイル | 内容 |
 | --- | --- |
 | [REQUIREMENTS_v0.2.md](./REQUIREMENTS_v0.2.md) | 要件定義書 v0.2（現行版）。携帯/iPad＋USB-Cマイクで配布、自宅PCで処理、将来ラズパイ化・EC2化の整合を取った版 |
+| [TEST_PLAN.md](./TEST_PLAN.md) | v0.3 の自動テスト・2画面E2E・実機マイク・Docker検証手順 |
+| [VERIFICATION_v0.3.md](./VERIFICATION_v0.3.md) | v0.3安定化時点の自動ゲート・2画面E2E・Docker実測結果 |
 
 ## 実装状況
 
-ロードマップ **Step 1〜4** 実装済み。既存の Attention Ledger 基盤（FastAPI + Next.js 静的書き出し）に同居する形で動作する。
+**v0.3 安定化版**。ロードマップ **Step 1〜4** 実装済み。既存の Attention Ledger 基盤（FastAPI + Next.js 静的書き出し）に同居する形で動作する。
 
 | 種別 | 場所 | 内容 |
 | --- | --- | --- |
-| API | `python/attention_ledger/api/talkbalancer.py` | `/api/talkbalancer/*` — セッション管理・幹事アラート・騒音解析・終了前レポート（メモリ内のみ、録音/永続化なし） |
+| API | `python/attention_ledger/api/talkbalancer.py` | `/api/talkbalancer/*` — セッション管理・参加者登録・話者イベント・文字起こしメモ・幹事アラート・騒音解析・終了前レポート（メモリ内のみ、録音/永続化なし） |
 | WebSocket | 同上 `/api/talkbalancer/ws/metrics` | テーブル端末からの音量メトリクス受信と解析結果の返送（Step 3） |
-| 画面 | `src/app/talkbalancer/` | ホーム / 開始前宣言 / 同意確認 / テーブル表示 / 幹事リモコン / マイク接続確認 / 終了レポート |
-| テスト | `python/tests/test_talkbalancer.py` | セッション・アラート・解析計算・WebSocket・自動アラート・終了前レポート |
+| 画面 | `src/app/talkbalancer/` | ホーム / 飲み会運用ガイド / 機器選定ガイド / 開始前宣言 / 同意確認 / テーブル表示 / 幹事リモコン / マイク接続確認 / 終了レポート |
+| テスト | `python/tests/test_talkbalancer.py` | セッション・参加者登録・話者バランス・アラート・解析計算・WebSocket・自動アラート・終了前レポート |
 
-利用フロー: `/talkbalancer` → 開始前宣言 → 同意確認（モード選択）→ テーブル表示（テーブル中央に設置）。幹事は別端末で `/talkbalancer/remote` を開いてアラートを送る。マイク接続確認（`/talkbalancer/mic`）は Web Audio API による入力レベル表示のみで録音しない（Step 2）。
+利用フロー: `/talkbalancer` → 飲み会運用ガイド（`/talkbalancer/party`）と機器選定ガイド（`/talkbalancer/hardware`）を確認 → 開始前宣言 → 同意確認（モード選択・テーブル人数/参加者名の登録）→ テーブル表示（テーブル中央に設置）。幹事は別端末で `/talkbalancer/remote` を開き、丁重アラートと話者バランス用の発話時間を記録する。マイク接続確認（`/talkbalancer/mic`）は Web Audio API による入力レベル表示のみで録音しない（Step 2）。
 
 終了前に `/talkbalancer/report` を開くと、開催中セッションのアラート内訳・直近表示・騒音解析の状態を確認できる。レポートは保存ファイルではなくメモリ内状態から都度生成され、セッション終了時にアラートとメトリクスは削除される。
+
+モードB/Cでは、幹事リモコンから「誰がどれくらい話したか」を5秒/15秒/30秒/60秒単位でバッチ記録する。テーブル表示と終了レポートでは、全体と直近5分の円グラフを表示する。将来の話者分離は、同じ `/speaker-events` 形式へ自動イベントを投入する形で接続する。
+
+モードCでは、明示同意のうえで幹事リモコンから文字起こし/要点メモを追加できる。現段階では録音保存やクラウド文字起こしは行わず、メモリ内のテキストとして保持し、終了時に削除する。
 
 テーブル表示の「騒音メーターを開始」を押すと、端末がマイクの RMS/ピークを1秒ごとに集計して WebSocket でサーバーへ送り（**音声波形は端末外に出ない**）、サーバーが以下を返して画面に表示する（Step 3/4・F-07）:
 

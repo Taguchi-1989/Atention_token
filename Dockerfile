@@ -5,6 +5,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY src/ src/
+COPY public/ public/
 COPY tsconfig.json tailwind.config.js postcss.config.js next.config.js ./
 RUN npm run build
 # output: /app/out/
@@ -15,8 +16,8 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Install Python dependencies
-COPY python/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY python/requirements.txt python/requirements.lock ./
+RUN pip install --no-cache-dir -r requirements.lock
 
 # Copy Python source
 COPY python/ ./python/

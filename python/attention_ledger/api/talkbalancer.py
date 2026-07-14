@@ -58,6 +58,8 @@ _ALERT_SEVERITY: dict = {
 class SessionCreate(BaseModel):
     title: str = Field(default="飲み会", max_length=100)
     mode: SessionMode = "volume_only"
+    participantCount: int = Field(default=4, ge=1, le=20)
+    participantNames: List[str] = Field(default_factory=list, max_length=20)
 
 
 class Session(BaseModel):
@@ -83,18 +85,146 @@ class AlertEvent(BaseModel):
     severity: Literal["info", "notice", "strong"]
 
 
+class Participant(BaseModel):
+    id: str
+    name: str
+    color: str
+
+
+class ParticipantsUpdate(BaseModel):
+    names: List[str] = Field(min_length=1, max_length=20)
+
+
+class SpeakerEventCreate(BaseModel):
+    participantId: str
+    durationSec: int = Field(default=15, ge=1, le=300)
+    source: Literal["manual", "auto"] = "manual"
+
+
+class SpeakerEventBatch(BaseModel):
+    events: List[SpeakerEventCreate] = Field(min_length=1, max_length=100)
+
+
+class SpeakerEvent(BaseModel):
+    id: str
+    sessionId: str
+    participantId: str
+    timestamp: str
+    durationSec: int
+    source: Literal["manual", "auto"]
+
+
+class TranscriptNoteCreate(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+    participantId: Optional[str] = None
+    source: Literal["manual", "auto"] = "manual"
+
+
+class TranscriptNote(BaseModel):
+    id: str
+    sessionId: str
+    timestamp: str
+    text: str
+    participantId: Optional[str] = None
+    participantName: Optional[str] = None
+    source: Literal["manual", "auto"]
+
+
 # ── メモリ内状態（録音・永続化なし） ──
 
 _MAX_ALERTS = 50
+_MAX_SPEAKER_EVENTS = 5000
+_PARTICIPANT_COLORS = [
+    "#00f2ff", "#00ff88", "#ffaa00", "#ff4466", "#7000ff",
+    "#38bdf8", "#f472b6", "#a3e635", "#fb7185", "#c084fc",
+]
 
 _lock = threading.Lock()
 _session: Optional[Session] = None
 _alerts: deque = deque(maxlen=_MAX_ALERTS)
+_participants: List[Participant] = []
+_speaker_events: deque = deque(maxlen=_MAX_SPEAKER_EVENTS)
+_transcript_notes: deque = deque(maxlen=200)
 _seq = 0
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _participant_name(i: int) -> str:
+    return f"{chr(65 + i)}さん" if i < 26 else f"参加者{i + 1}"
+
+
+def _make_participants(names: List[str], count: int) -> List[Participant]:
+    clean = [n.strip() for n in names if n.strip()]
+    if not clean:
+        clean = [_participant_name(i) for i in range(count)]
+    clean = clean[:20]
+    return [
+        Participant(
+            id=f"speaker_{i + 1}",
+            name=name[:30],
+            color=_PARTICIPANT_COLORS[i % len(_PARTICIPANT_COLORS)],
+        )
+        for i, name in enumerate(clean)
+    ]
+
+
+def _participant_exists(participant_id: str) -> bool:
+    return any(p.id == participant_id for p in _participants)
+
+
+def _participant_name_by_id(participant_id: Optional[str]) -> Optional[str]:
+    if participant_id is None:
+        return None
+    for participant in _participants:
+        if participant.id == participant_id:
+            return participant.name
+    return None
+
+
+def _speaker_stats_locked(now: float) -> dict:
+    totals = {p.id: 0 for p in _participants}
+    recent = {p.id: 0 for p in _participants}
+    latest: Optional[SpeakerEvent] = None
+
+    for event in _speaker_events:
+        if event.sessionId != _session.id:
+            continue
+        if event.participantId not in totals:
+            continue
+        totals[event.participantId] += event.durationSec
+        event_ts = datetime.fromisoformat(event.timestamp).timestamp()
+        if event_ts >= now - 300:
+            recent[event.participantId] += event.durationSec
+        if latest is None or event.timestamp > latest.timestamp:
+            latest = event
+
+    total_sum = sum(totals.values())
+    recent_sum = sum(recent.values())
+
+    def rows(bucket: dict, denom: int) -> List[dict]:
+        return [
+            {
+                "participantId": p.id,
+                "name": p.name,
+                "color": p.color,
+                "seconds": bucket.get(p.id, 0),
+                "share": round(bucket.get(p.id, 0) / denom, 4) if denom else 0.0,
+            }
+            for p in _participants
+        ]
+
+    return {
+        "active": _session is not None,
+        "participants": _participants,
+        "total": rows(totals, total_sum),
+        "recent5m": rows(recent, recent_sum),
+        "totalSeconds": total_sum,
+        "recent5mSeconds": recent_sum,
+        "latestEvent": latest,
+    }
 
 
 # ── エンドポイント ──
@@ -104,14 +234,19 @@ def get_session():
     """現在のセッション状態。テーブル表示/リモコンの起動時確認に使う。"""
     with _lock:
         if _session is None:
-            return {"active": False, "session": None, "seq": _seq}
-        return {"active": True, "session": _session, "seq": _seq}
+            return {"active": False, "session": None, "seq": _seq, "participants": []}
+        return {
+            "active": True,
+            "session": _session,
+            "seq": _seq,
+            "participants": _participants,
+        }
 
 
 @router.post("/session", status_code=201)
 def start_session(body: SessionCreate):
     """セッション開始（F-02 同意確認後に呼ぶ）。既存セッションは置き換える。"""
-    global _session, _seq
+    global _session, _seq, _participants
     with _lock:
         _session = Session(
             id=uuid.uuid4().hex[:12],
@@ -119,22 +254,130 @@ def start_session(body: SessionCreate):
             startedAt=_now_iso(),
             mode=body.mode,
         )
+        _participants = _make_participants(body.participantNames, body.participantCount)
         _alerts.clear()
+        _speaker_events.clear()
+        _transcript_notes.clear()
         _seq = 0
         _reset_metrics_locked()
-        return {"active": True, "session": _session, "seq": _seq}
+        return {"active": True, "session": _session, "seq": _seq, "participants": _participants}
 
 
 @router.delete("/session")
 def end_session():
     """セッション終了。全データを破棄する（10.1 終了時にデータ削除）。"""
-    global _session, _seq
+    global _session, _seq, _participants
     with _lock:
         _session = None
+        _participants = []
         _alerts.clear()
+        _speaker_events.clear()
+        _transcript_notes.clear()
         _seq = 0
         _reset_metrics_locked()
         return {"active": False, "deleted": True}
+
+
+@router.get("/participants")
+def get_participants():
+    """テーブル人数と話者ラベル。MVPでは手動記録、将来は話者分離のクラスタに接続する。"""
+    with _lock:
+        return {"active": _session is not None, "participants": _participants}
+
+
+@router.put("/participants")
+def put_participants(body: ParticipantsUpdate):
+    """参加者名を更新する。話者イベントはラベル変更に追従する。"""
+    global _participants
+    with _lock:
+        if _session is None:
+            raise HTTPException(status_code=409, detail="セッションが開始されていません")
+        _participants = _make_participants(body.names, len(body.names))
+        return {"active": True, "participants": _participants}
+
+
+def _record_speaker_event_locked(body: SpeakerEventCreate) -> SpeakerEvent:
+    if _session is None:
+        raise HTTPException(status_code=409, detail="セッションが開始されていません")
+    if not _participant_exists(body.participantId):
+        raise HTTPException(status_code=404, detail="参加者が見つかりません")
+    event = SpeakerEvent(
+        id=uuid.uuid4().hex[:12],
+        sessionId=_session.id,
+        participantId=body.participantId,
+        timestamp=_now_iso(),
+        durationSec=body.durationSec,
+        source=body.source,
+    )
+    _speaker_events.append(event)
+    return event
+
+
+@router.post("/speaker-events", status_code=201)
+def post_speaker_event(body: SpeakerEventCreate):
+    """話者の発話時間を手動記録する。将来の話者分離は同じイベント形式で投入する。"""
+    with _lock:
+        event = _record_speaker_event_locked(body)
+        return {"event": event, "stats": _speaker_stats_locked(time.time())}
+
+
+@router.post("/speaker-events/batch", status_code=201)
+def post_speaker_event_batch(body: SpeakerEventBatch):
+    """5分ごとのまとめ投入や将来の話者分離バッチ投入に使う。"""
+    with _lock:
+        events = [_record_speaker_event_locked(item) for item in body.events]
+        return {"events": events, "stats": _speaker_stats_locked(time.time())}
+
+
+@router.get("/speaker-stats")
+def get_speaker_stats():
+    """話者別の全体/直近5分の発話比率。円グラフ表示用。"""
+    with _lock:
+        if _session is None:
+            return {
+                "active": False, "participants": [], "total": [], "recent5m": [],
+                "totalSeconds": 0, "recent5mSeconds": 0, "latestEvent": None,
+            }
+        return _speaker_stats_locked(time.time())
+
+
+@router.get("/transcript-notes")
+def get_transcript_notes():
+    """モードC用の文字起こし/要点メモ。録音保存はせず、メモリ内のみ保持する。"""
+    with _lock:
+        if _session is None:
+            return {"active": False, "enabled": False, "notes": []}
+        return {
+            "active": True,
+            "enabled": _session.mode == "transcript",
+            "notes": list(_transcript_notes),
+        }
+
+
+@router.post("/transcript-notes", status_code=201)
+def post_transcript_note(body: TranscriptNoteCreate):
+    """モードCでのみ、幹事が文字起こしメモを追加できる。"""
+    with _lock:
+        if _session is None:
+            raise HTTPException(status_code=409, detail="セッションが開始されていません")
+        if _session.mode != "transcript":
+            raise HTTPException(status_code=409, detail="文字起こしメモはモードCでのみ使えます")
+        if body.participantId is not None and not _participant_exists(body.participantId):
+            raise HTTPException(status_code=404, detail="参加者が見つかりません")
+        text = body.text.strip()
+        if not text:
+            raise HTTPException(status_code=422, detail="メモ本文が空です")
+        note = TranscriptNote(
+            id=uuid.uuid4().hex[:12],
+            sessionId=_session.id,
+            timestamp=_now_iso(),
+            text=text,
+            participantId=body.participantId,
+            participantName=_participant_name_by_id(body.participantId),
+            source=body.source,
+        )
+        _transcript_notes.append(note)
+        return {"note": note, "notes": list(_transcript_notes)}
 
 
 def _create_alert_locked(alert_type: str, source: str) -> AlertEvent:
@@ -205,9 +448,11 @@ def get_report():
             "alertCounts": counts,
             "latestAlerts": list(_alerts)[-5:],
             "analysis": _compute_analysis_locked(now),
+            "speakerStats": _speaker_stats_locked(now),
+            "transcriptNotes": list(_transcript_notes)[-20:],
             "privacy": {
                 "recording": False,
-                "transcription": False,
+                "transcription": _session.mode == "transcript",
                 "cloudUpload": False,
                 "savePolicy": "none",
             },

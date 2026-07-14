@@ -3,9 +3,9 @@
 ## Setup (pip + venv)
 
 ```bash
-python -m venv .venv
+python -m venv .venv             # Windowsで複数Pythonがある場合: py -3.12 -m venv .venv
 .\.venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.lock
 ```
 
 ## Run API
@@ -14,13 +14,14 @@ pip install -r requirements.txt
 uvicorn attention_ledger.api.main:app --reload
 ```
 
-## API (read-only MVP)
+## API
 
-- `GET /health`
-- `GET /tasks`
-- `GET /runs?limit=10`
-- `GET /runs?limit=10&include_metrics=true`
-- `POST /sus`
+- `GET /api/health`
+- `GET /api/tasks`
+- `GET /api/runs?limit=10`
+- `GET /api/runs?limit=10&include_metrics=true`
+- `POST /api/sus`
+- `/api/talkbalancer/*`
 
 ### Environment
 

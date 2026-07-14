@@ -18,6 +18,16 @@ GitHub Pages 版にはバックエンド（FastAPI）が無いため、Attention
 
 ---
 
+## TalkBalancer v0.3
+
+飲み会や懇親会で、幹事が言いにくい注意を匿名の丁寧な通知で代行し、発話バランスや店内音量を見える化する進行支援アプリです。録音保存とクラウド送信は初期設定で OFF、セッション終了時に通知・発話・メモ・騒音データを削除できます。
+
+[8枚組の販促・取扱説明資料を見る](public/manual/talkbalancer-v0.3/README.md)
+
+![TalkBalancer v0.3 取扱説明書](public/manual/talkbalancer-v0.3/01-quick-start.png)
+
+---
+
 ## Why it works
 
 | Signal                 | Interpretation                                             |
@@ -69,11 +79,14 @@ cp .env.example .env
 # 3. Start everything
 docker compose up --build
 
-# 4. Open the dashboard
-open http://localhost:3000
+# 4. Open the dashboard (FastAPI serves the exported UI)
+open http://localhost:8000
 ```
 
-> The API is available at <http://localhost:8000>
+Port 8000が使用中の場合は、`APP_PORT=8010 docker compose up --build`（PowerShellでは
+`$env:APP_PORT=8010; docker compose up --build`）で公開ポートを変更できます。
+
+> The API base URL is <http://localhost:8000/api>
 > Interactive API docs: <http://localhost:8000/docs>
 
 To use a real LLM, install [Ollama](https://ollama.ai), pull a model, and set `OLLAMA_URL` in `.env`:
@@ -90,9 +103,9 @@ ollama pull llama3
 
 ```bash
 cd python
-python -m venv .venv
+python -m venv .venv             # Windowsで複数Pythonがある場合: py -3.12 -m venv .venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.lock
 
 # Start the API server
 uvicorn attention_ledger.api.main:app --port 8000 --reload
@@ -110,12 +123,12 @@ Environment variables (optional — all have defaults):
 ### Next.js Frontend
 
 ```bash
-cd src
-npm install
+# リポジトリ直下で実行（package.json はルートにあります）
+npm ci
 npm run dev       # http://localhost:3000
 ```
 
-Set `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` in `src/.env.local` if the API runs on a different host.
+Set `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api` in `.env.local` at the repository root when the API runs on a different origin.
 
 ---
 
@@ -132,15 +145,15 @@ Set `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` in `src/.env.local` if the 
 
 ```bash
 # List available tasks
-curl http://localhost:8000/tasks
+curl http://localhost:8000/api/tasks
 
 # Run a task in mock mode
-curl -X POST http://localhost:8000/tasks/EXPENSE_INPUT_V1/run \
+curl -X POST http://localhost:8000/api/tasks/EXPENSE_INPUT_V1/run \
   -H "Content-Type: application/json" \
   -d '{"baseline_id": "demo", "mock": true}'
 
 # View run history
-curl "http://localhost:8000/runs?limit=10&include_metrics=true"
+curl "http://localhost:8000/api/runs?limit=10&include_metrics=true"
 ```
 
 ---
@@ -169,16 +182,18 @@ Run the corresponding YAML task IDs (e.g., `EXPENSE_INPUT_V1` vs `EXPENSE_INPUT_
 
 ```bash
 cd python
-pip install pytest
-pytest
+python -m pytest -k "not playwright" -m "not ollama"
 ```
+
+Ollamaモデルのスモークテストは、Ollamaと対象モデルを起動したうえで
+`python -m pytest -m ollama` を個別に実行します。
 
 ### Frontend
 
 ```bash
-cd src
-npm install
-npm test
+npm ci
+npm test -- --runInBand
+npm run lint
 npm run build   # verify production build
 ```
 
@@ -196,10 +211,8 @@ npm run build   # verify production build
 
 ```text
 attention-ledger/
-├── docker/
-│   ├── Dockerfile.api          # Python backend image
-│   └── Dockerfile.web          # Next.js frontend image
-├── docker-compose.yml
+├── Dockerfile                  # Next.js build + FastAPI runtime
+├── docker-compose.yml          # Integrated app on port 8000
 ├── .env.example
 ├── .github/
 │   └── workflows/

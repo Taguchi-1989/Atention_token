@@ -2,7 +2,18 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Wine, Megaphone, MonitorSpeaker, Mic, ScrollText, Trash2, ArrowLeft, BarChart3 } from 'lucide-react';
+import {
+  Wine,
+  Megaphone,
+  MonitorSpeaker,
+  Mic,
+  ScrollText,
+  Trash2,
+  ArrowLeft,
+  BarChart3,
+  ClipboardList,
+  PackageCheck,
+} from 'lucide-react';
 import { fetchTbSession, endTbSession, isDemoMode, SessionState } from '@/lib/talkbalancer';
 
 const MODE_LABELS: Record<string, string> = {
@@ -80,11 +91,15 @@ export default function TalkBalancerHome() {
             <p className="text-text-muted">セッションは開始されていません。開始前宣言から始めてください。</p>
           )}
           <p className="mt-3 text-xs text-text-muted">
-            録音保存：OFF ／ 文字起こし：OFF ／ クラウド送信：OFF
+            録音保存：OFF ／ 文字起こし：{state?.session?.mode === 'transcript' ? 'ON（保存なし）' : 'OFF'} ／ クラウド送信：OFF
           </p>
         </div>
 
         <nav className="grid gap-3">
+          <MenuLink href="/talkbalancer/party" icon={<ClipboardList size={22} />}
+            title="飲み会運用ガイド" desc="乾杯前から終了までの使い方を確認します" />
+          <MenuLink href="/talkbalancer/hardware" icon={<PackageCheck size={22} />}
+            title="機器選定ガイド" desc="標準キットとおすすめマイクを確認します" />
           <MenuLink href="/talkbalancer/declaration" icon={<ScrollText size={22} />}
             title="開始前宣言" desc="飲み会を始める前に、場のルールを宣言します" />
           <MenuLink href="/talkbalancer/table" icon={<MonitorSpeaker size={22} />}

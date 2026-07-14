@@ -5,12 +5,13 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft, BarChart3, Clock, Gauge, ListChecks, ShieldCheck, Trash2,
+  ArrowLeft, BarChart3, Clock, FileText, Gauge, ListChecks, ShieldCheck, Trash2,
 } from 'lucide-react';
 import {
   endTbSession, fetchTbReport, isDemoMode, NOISE_LABELS, REMOTE_BUTTONS,
   AlertType, TbReport,
 } from '@/lib/talkbalancer';
+import TalkBalancerSpeakerPie from '@/components/TalkBalancerSpeakerPie';
 
 const MODE_LABELS: Record<string, string> = {
   volume_only: 'モードA：音量のみ',
@@ -28,6 +29,7 @@ export default function TalkBalancerReportPage() {
   const [report, setReport] = useState<TbReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [confirmingEnd, setConfirmingEnd] = useState(false);
   const [demo, setDemo] = useState(false);
 
   useEffect(() => {
@@ -48,10 +50,16 @@ export default function TalkBalancerReportPage() {
   }, [report]);
 
   const handleEnd = async () => {
-    if (!window.confirm('セッションを終了し、アラートとメトリクスを削除しますか？')) return;
     setDeleting(true);
-    await endTbSession();
-    router.push('/talkbalancer');
+    setError(null);
+    try {
+      await endTbSession();
+      router.push('/talkbalancer');
+    } catch {
+      setDeleting(false);
+      setConfirmingEnd(false);
+      setError('セッションを終了できませんでした。サーバー接続を確認してください。');
+    }
   };
 
   if (error) {
@@ -94,14 +102,39 @@ export default function TalkBalancerReportPage() {
             {demo ? ' ／ デモモード' : ''}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleEnd}
-          disabled={deleting}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-error/50 px-4 py-3 text-sm font-semibold text-error hover:bg-error/10 disabled:opacity-50"
-        >
-          <Trash2 size={16} /> 終了して削除
-        </button>
+        <div className="flex flex-col items-stretch gap-2 sm:items-end">
+          {!confirmingEnd ? (
+            <button
+              type="button"
+              onClick={() => setConfirmingEnd(true)}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-error/50 px-4 py-3 text-sm font-semibold text-error hover:bg-error/10"
+            >
+              <Trash2 size={16} /> 終了して削除
+            </button>
+          ) : (
+            <div role="alert" className="rounded-xl border border-error/50 bg-error/10 p-3">
+              <p className="mb-2 text-sm text-error">アラート・発話記録・メモ・騒音データを削除します。</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmingEnd(false)}
+                  disabled={deleting}
+                  className="rounded-lg border border-border px-3 py-2 text-xs text-text-muted hover:text-white disabled:opacity-50"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEnd}
+                  disabled={deleting}
+                  className="rounded-lg bg-error px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  {deleting ? '削除中...' : '削除を確定'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -141,6 +174,44 @@ export default function TalkBalancerReportPage() {
         )}
       </section>
 
+      {report.speakerStats && report.speakerStats.participants.length > 0 && (
+        <section className="grid gap-3 lg:grid-cols-2">
+          <TalkBalancerSpeakerPie
+            title="話者バランス（全体）"
+            data={report.speakerStats.total}
+            totalSeconds={report.speakerStats.totalSeconds}
+          />
+          <TalkBalancerSpeakerPie
+            title="話者バランス（直近5分）"
+            data={report.speakerStats.recent5m}
+            totalSeconds={report.speakerStats.recent5mSeconds}
+          />
+        </section>
+      )}
+
+      {report.session.mode === 'transcript' && (
+        <section className="rounded-xl border border-border bg-surface p-5">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+            <FileText size={18} className="text-primary" /> 文字起こしメモ
+          </h2>
+          {report.transcriptNotes && report.transcriptNotes.length > 0 ? (
+            <div className="space-y-3">
+              {report.transcriptNotes.slice().reverse().map((note) => (
+                <div key={note.id} className="rounded-lg border border-border bg-background/50 p-3">
+                  <div className="mb-1 flex items-center justify-between gap-3 text-xs text-text-muted">
+                    <span>{note.participantName ?? '話者未指定'} ／ {note.source === 'auto' ? '自動' : '手動'}</span>
+                    <span>{formatTime(note.timestamp)}</span>
+                  </div>
+                  <p className="text-sm leading-relaxed">{note.text}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-text-muted">まだ文字起こしメモはありません。</p>
+          )}
+        </section>
+      )}
+
       <section className="rounded-xl border border-border bg-surface p-5">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
           <ListChecks size={18} className="text-primary" /> 直近の表示
@@ -168,7 +239,14 @@ export default function TalkBalancerReportPage() {
         </h2>
         <div className="grid gap-2 text-sm sm:grid-cols-3">
           <p>録音保存：<span className="font-mono text-success">OFF</span></p>
-          <p>文字起こし：<span className="font-mono text-success">OFF</span></p>
+          <p>
+            文字起こし：
+            {report.privacy?.transcription ? (
+              <span className="font-mono text-warning">ON（保存なし）</span>
+            ) : (
+              <span className="font-mono text-success">OFF</span>
+            )}
+          </p>
           <p>クラウド送信：<span className="font-mono text-success">OFF</span></p>
         </div>
         <p className="mt-3 text-xs text-text-muted">
