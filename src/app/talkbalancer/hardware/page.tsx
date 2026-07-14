@@ -4,7 +4,9 @@ import {
   ArrowRight,
   CheckCircle2,
   ExternalLink,
+  Gauge,
   Info,
+  Laptop,
   PackageCheck,
   ShieldAlert,
 } from 'lucide-react';
@@ -59,6 +61,41 @@ export default function HardwareGuidePage() {
             <span className="font-semibold text-white"> Anker PowerConf S3</span> は、対象タブレットのブラウザで
             マイク入力として認識できることを実機確認してから採用します。
           </p>
+        </section>
+
+        <section className="rounded-xl border border-warning/40 bg-warning/10 p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
+                <Laptop size={19} className="text-warning" /> 機材が手元にない場合
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-text-muted">
+                PC内蔵マイクでも <span className="font-semibold text-white">簡易モード</span> として開始できます。
+                外部マイクより収音の公平性と再現性は下がりますが、同じPCを同じ場所に置けば、店内音量の変化を
+                0〜100の相対値とdBFS参考値で確認できます。
+              </p>
+            </div>
+            <Link
+              href="/talkbalancer/mic"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-warning/60 bg-warning/10 px-5 py-3 text-sm font-semibold text-white hover:bg-warning/20"
+            >
+              <Gauge size={16} /> 内蔵マイクを試す
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+            <div className="rounded-lg border border-white/10 bg-background/40 p-3">
+              <p className="font-semibold text-white">1. PCを中央寄りに置く</p>
+              <p className="mt-1 text-text-muted">壁際や一人の近くを避け、途中で位置を変えません。</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-background/40 p-3">
+              <p className="font-semibold text-white">2. 開始前に10秒ずつ確認</p>
+              <p className="mt-1 text-text-muted">静かな状態と通常会話で、相対数値の差を見ます。</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-background/40 p-3">
+              <p className="font-semibold text-white">3. 絶対dBとして扱わない</p>
+              <p className="mt-1 text-text-muted">端末やOSの自動ゲインで変わるため、その場の変化を見る目安です。</p>
+            </div>
+          </div>
         </section>
 
         <section className="grid gap-4 lg:grid-cols-3">

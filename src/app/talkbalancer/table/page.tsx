@@ -1,18 +1,19 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Wine, Settings2, Mic, MicOff, Volume2, Gauge, Activity, HandHeart } from 'lucide-react';
 import TalkBalancerSpeakerPie from '@/components/TalkBalancerSpeakerPie';
+import { useTalkBalancerNoiseMeter } from '@/hooks/useTalkBalancerNoiseMeter';
+import { rmsToRelativeLevel } from '@/lib/talkbalancer-mic';
 import {
-  fetchTbSession, fetchTbAlerts, tbMetricsWsUrl, isDemoMode, ingestDemoMetric,
+  fetchTbSession, fetchTbAlerts, isDemoMode,
   fetchTbSpeakerStats,
-  TbSession, TbAlert, TbAnalysis, TbSpeakerStats, NOISE_LABELS,
+  TbSession, TbAlert, TbSpeakerStats, NOISE_LABELS,
 } from '@/lib/talkbalancer';
 
 const POLL_MS = 2000;
 const ALERT_SHOW_MS = 25000;
-const METRIC_SEND_MS = 1000;
 const SPEAKER_POLL_MS = 5000;
 const FACILITATION_GRACE_MS = 20 * 60 * 1000;
 
@@ -69,18 +70,19 @@ export default function TableDisplayPage() {
   const [session, setSession] = useState<TbSession | null>(null);
   const [checked, setChecked] = useState(false);
   const [alert, setAlert] = useState<TbAlert | null>(null);
-  const [analysis, setAnalysis] = useState<TbAnalysis | null>(null);
   const [speakerStats, setSpeakerStats] = useState<TbSpeakerStats | null>(null);
-  const [measuring, setMeasuring] = useState(false);
-  const [micError, setMicError] = useState<string | null>(null);
   const [demo, setDemo] = useState(false);
+  const {
+    activeMic,
+    analysis,
+    error: micError,
+    measuring,
+    start: startMeasure,
+    stop: stopMeasure,
+  } = useTalkBalancerNoiseMeter();
 
   const seqRef = useRef(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const ctxRef = useRef<AudioContext | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const sendTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // 画面を常時表示に保つ（Screen Wake Lock）
   useEffect(() => {
@@ -163,85 +165,6 @@ export default function TableDisplayPage() {
       if (hideTimer.current) clearTimeout(hideTimer.current);
     };
   }, []);
-
-  const stopMeasure = useCallback(() => {
-    if (sendTimer.current) clearInterval(sendTimer.current);
-    sendTimer.current = null;
-    wsRef.current?.close();
-    wsRef.current = null;
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    ctxRef.current?.close().catch(() => {});
-    ctxRef.current = null;
-    setMeasuring(false);
-  }, []);
-
-  // Step 3: マイク音量を1秒ごとに集計して WebSocket でサーバーへ送る
-  // （送るのは RMS/ピークの数値のみ。音声波形は端末外に出ない）
-  const startMeasure = useCallback(async () => {
-    setMicError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      const ctx = new AudioContext();
-      ctxRef.current = ctx;
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 2048;
-      ctx.createMediaStreamSource(stream).connect(analyser);
-      const buf = new Float32Array(analyser.fftSize);
-
-      const readMetric = () => {
-        analyser.getFloatTimeDomainData(buf);
-        let sum = 0;
-        let peak = 0;
-        for (let i = 0; i < buf.length; i++) {
-          const v = buf[i];
-          sum += v * v;
-          const a = Math.abs(v);
-          if (a > peak) peak = a;
-        }
-        return { rms: Math.min(1, Math.sqrt(sum / buf.length)), peak: Math.min(1, peak) };
-      };
-
-      // デモモード：サーバーなしでブラウザ内解析（音声は端末から出ない）
-      if (isDemoMode()) {
-        sendTimer.current = setInterval(() => {
-          setAnalysis(ingestDemoMetric(readMetric().rms));
-        }, METRIC_SEND_MS);
-        setMeasuring(true);
-        return;
-      }
-
-      const ws = new WebSocket(tbMetricsWsUrl());
-      wsRef.current = ws;
-      ws.onmessage = (ev) => {
-        try {
-          const data = JSON.parse(ev.data);
-          if (!data.error) setAnalysis(data);
-        } catch { /* 解析結果以外は無視 */ }
-      };
-      ws.onclose = () => { if (wsRef.current === ws) stopMeasure(); };
-      ws.onerror = () => setMicError('サーバーに接続できませんでした');
-
-      ws.onopen = () => {
-        sendTimer.current = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify(readMetric()));
-          }
-        }, METRIC_SEND_MS);
-        setMeasuring(true);
-      };
-    } catch (e) {
-      setMicError(
-        e instanceof DOMException && e.name === 'NotAllowedError'
-          ? 'マイクの使用が許可されませんでした'
-          : 'マイクを開けませんでした'
-      );
-      stopMeasure();
-    }
-  }, [stopMeasure]);
-
-  useEffect(() => () => stopMeasure(), [stopMeasure]);
 
   if (checked && !session) {
     return (
@@ -347,8 +270,15 @@ export default function TableDisplayPage() {
           <div className="grid grid-cols-3 gap-3 text-center">
             <Meter
               icon={<Volume2 size={16} />}
-              label="店内音量"
-              value={<span className={noiseTone}>{NOISE_LABELS[analysis.noiseCategory]}</span>}
+              label="店内音量（相対値）"
+              value={(
+                <span className={noiseTone}>
+                  {NOISE_LABELS[analysis.noiseCategory]}
+                  <span className="mt-1 block font-mono text-xs text-text-muted">
+                    {rmsToRelativeLevel(analysis.noiseLevel)}/100 ・ {analysis.noiseDb.toFixed(1)} dBFS
+                  </span>
+                </span>
+              )}
               bar={Math.min(1, analysis.noiseLevel / 0.25)}
               barClass={analysis.noiseCategory === 'loud' || analysis.noiseCategory === 'very_loud' ? 'bg-warning' : 'bg-primary'}
             />
@@ -376,6 +306,16 @@ export default function TableDisplayPage() {
               <Mic size={16} /> 騒音メーターを開始（録音はしません）
             </button>
             {micError && <span className="text-error">{micError}</span>}
+          </div>
+        )}
+        {measuring && activeMic && (
+          <div className={`mt-2 rounded-lg border px-3 py-2 text-center text-xs ${
+            activeMic.isExternal
+              ? 'border-primary/30 bg-primary/5 text-text-muted'
+              : 'border-warning/40 bg-warning/10 text-warning'
+          }`}>
+            {activeMic.isExternal ? '外部マイク' : '内蔵マイク簡易モード'}：{activeMic.label}
+            {!activeMic.isExternal && ' ／ 数値は絶対騒音dBではなく、同じPC・同じ配置で比較する参考値です。'}
           </div>
         )}
         {measuring && (

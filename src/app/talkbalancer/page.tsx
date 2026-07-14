@@ -13,6 +13,7 @@ import {
   BarChart3,
   ClipboardList,
   PackageCheck,
+  Smartphone,
 } from 'lucide-react';
 import { fetchTbSession, endTbSession, isDemoMode, SessionState } from '@/lib/talkbalancer';
 
@@ -68,6 +69,7 @@ export default function TalkBalancerHome() {
             <p className="text-text-muted">
               サーバー未接続のため、データはこのブラウザ内にのみ保存されます。
               テーブル表示と幹事リモコンを同じブラウザの別タブで開くと連携を体験できます。
+              携帯1台モードなら、同じ画面内で表示と操作ができます。
               騒音メーターもブラウザ内で解析され、音声は端末から送信されません。
             </p>
           </div>
@@ -96,10 +98,12 @@ export default function TalkBalancerHome() {
         </div>
 
         <nav className="grid gap-3">
+          <MenuLink href="/talkbalancer/mobile" icon={<Smartphone size={22} />}
+            title="携帯1台モード（PWA）" desc="Android携帯をテーブルに置き、内蔵マイク・表示・幹事操作を1画面で使います" />
           <MenuLink href="/talkbalancer/party" icon={<ClipboardList size={22} />}
             title="飲み会運用ガイド" desc="乾杯前から終了までの使い方を確認します" />
           <MenuLink href="/talkbalancer/hardware" icon={<PackageCheck size={22} />}
-            title="機器選定ガイド" desc="標準キットとおすすめマイクを確認します" />
+            title="機器選定ガイド" desc="外部マイクと、機材なしで使うPC内蔵マイク簡易モードを確認します" />
           <MenuLink href="/talkbalancer/declaration" icon={<ScrollText size={22} />}
             title="開始前宣言" desc="飲み会を始める前に、場のルールを宣言します" />
           <MenuLink href="/talkbalancer/table" icon={<MonitorSpeaker size={22} />}
@@ -107,7 +111,7 @@ export default function TalkBalancerHome() {
           <MenuLink href="/talkbalancer/remote" icon={<Megaphone size={22} />}
             title="幹事リモコン" desc="幹事のスマホから丁重アラートを送ります" />
           <MenuLink href="/talkbalancer/mic" icon={<Mic size={22} />}
-            title="マイク接続確認" desc="USB-Cマイクの認識と入力レベルを確認します" />
+            title="マイク接続確認" desc="外部／PC内蔵マイクの認識と相対音量の数値を確認します" />
           <MenuLink href="/talkbalancer/report" icon={<BarChart3 size={22} />}
             title="終了レポート" desc="アラート内訳と騒音メーターの状態を確認します" />
         </nav>

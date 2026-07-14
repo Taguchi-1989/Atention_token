@@ -52,7 +52,14 @@ export default function ConsentPage() {
         .slice(0, participantCount)
         .map((name, i) => name.trim() || `${String.fromCharCode(65 + i)}さん`);
       await startTbSession(title || '飲み会', mode, names);
-      router.push('/talkbalancer/table');
+      const startTarget = window.localStorage.getItem('talkbalancer.startTarget');
+      const requestedAt = Number(window.localStorage.getItem('talkbalancer.startTargetAt'));
+      window.localStorage.removeItem('talkbalancer.startTarget');
+      window.localStorage.removeItem('talkbalancer.startTargetAt');
+      const mobileRequested = startTarget === 'mobile'
+        && Number.isFinite(requestedAt)
+        && Date.now() - requestedAt < 30 * 60 * 1000;
+      router.push(mobileRequested ? '/talkbalancer/mobile' : '/talkbalancer/table');
     } catch {
       setError('セッションを開始できませんでした。サーバー接続を確認してください。');
       setStarting(false);

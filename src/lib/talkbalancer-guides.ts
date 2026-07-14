@@ -278,8 +278,8 @@ export const MIC_CANDIDATES: MicCandidate[] = [
 ];
 
 export const SETUP_CHECKLIST = [
-  { icon: Cable, text: 'マイクはBluetoothより先にUSB接続で検証する' },
-  { icon: Mic, text: 'マイク確認画面で外部デバイス名と入力レベルを見る' },
+  { icon: Cable, text: '外部マイクはBluetoothより先にUSB接続で検証する' },
+  { icon: Mic, text: '機材がなければPC内蔵マイク簡易モードで相対音量を確認する' },
   { icon: Volume2, text: '騒音メーターは乾杯前に一度だけ試す' },
   { icon: BatteryCharging, text: '端末とマイクのバッテリーを開始前に確認する' },
   { icon: Gauge, text: '店内音量が高い日は全体会話に固執しない' },
@@ -300,7 +300,7 @@ export const COMPATIBILITY_NOTES = [
   },
   {
     title: 'Webブラウザ',
-    text: 'Web Audio APIではデバイス名がマイク許可後に表示される。まずマイク確認画面で接続状態を見る。',
+    text: 'Web Audio APIではデバイス名がマイク許可後に表示される。外部マイクがなくてもPC内蔵マイクで簡易計測できる。dBFSと0〜100は端末内の相対値として扱う。',
     sourceUrl: '/talkbalancer/mic',
   },
 ];

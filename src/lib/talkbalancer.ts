@@ -133,25 +133,45 @@ export const NOISE_LABELS: Record<NoiseCategory, string> = {
 const TB = `${API_BASE_URL}/talkbalancer`;
 
 // ── デモモード判定 ──
-// ネットワークエラー、または API パスが 404（静的ホスティング）の場合に
-// デモモードへ切り替える。一度切り替わったらページ再読み込みまで維持する。
+// ネットワークエラー、または静的ホスティング特有の 404 / 405 の場合に
+// デモモードへ切り替える。画面遷移をまたいでも同じタブ内では維持する。
+const DEMO_MODE_KEY = 'talkbalancer_demo_mode_v1';
 let demoMode = false;
 
+function hasStoredDemoMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.sessionStorage.getItem(DEMO_MODE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function enableDemoMode(): void {
+  demoMode = true;
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(DEMO_MODE_KEY, '1');
+  } catch {
+    // ストレージを使えないブラウザでも、現在のページ内では継続できる。
+  }
+}
+
 export function isDemoMode(): boolean {
-  return demoMode;
+  return demoMode || hasStoredDemoMode();
 }
 
 async function tbFetch(path: string, init?: RequestInit): Promise<Response | null> {
-  if (demoMode) return null;
+  if (isDemoMode()) return null;
   try {
     const res = await fetch(`${TB}${path}`, init);
-    if (res.status === 404) {
-      demoMode = true;
+    if (res.status === 404 || res.status === 405) {
+      enableDemoMode();
       return null;
     }
     return res;
   } catch {
-    demoMode = true;
+    enableDemoMode();
     return null;
   }
 }

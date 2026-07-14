@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="TalkBalancer">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#06d6e8"/>
+      <stop offset="0.52" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#g)"/>
+  <circle cx="256" cy="256" r="176" fill="#090b18" fill-opacity=".26"/>
+  <rect x="207" y="128" width="98" height="176" rx="49" fill="none" stroke="white" stroke-width="26"/>
+  <path d="M164 248v14c0 51 41 92 92 92s92-41 92-92v-14M256 354v52M202 406h108" fill="none" stroke="white" stroke-width="26" stroke-linecap="round"/>
+</svg>
