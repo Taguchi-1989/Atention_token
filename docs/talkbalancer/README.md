@@ -6,6 +6,19 @@
 
 本リポジトリ（Attention Ledger）と同じく「人を評価せず、場の構造を整える」思想のプロダクトであり、技術スタック（Next.js + FastAPI + WebSocket + SQLite）も共通基盤を想定している。
 
+## 今すぐ試す
+
+- 公開PWA: <https://talkbalancer.pages.dev/talkbalancer>
+- Android携帯1台モード: <https://talkbalancer.pages.dev/talkbalancer/mobile>
+- ローカル統合版: <http://127.0.0.1:8010/talkbalancer>
+
+公開PWAはバックエンド不要の端末内デモモードで動作する。ローカルでAPI・WebSocketまで使う場合は、リポジトリ直下で `npm ci`、`npm run build` を実行後、`python` ディレクトリから次のコマンドで起動する。
+
+```bash
+python -m pip install -r requirements.lock
+python -m uvicorn attention_ledger.api.main:app --host 127.0.0.1 --port 8010
+```
+
 ## ドキュメント
 
 | ファイル | 内容 |
@@ -25,7 +38,7 @@
 | 画面 | `src/app/talkbalancer/` | ホーム / 携帯1台モード（PWA） / 飲み会運用ガイド / 機器選定ガイド / 開始前宣言 / 同意確認 / テーブル表示 / 幹事リモコン / マイク接続確認 / 終了レポート |
 | テスト | `python/tests/test_talkbalancer.py` | セッション・参加者登録・話者バランス・アラート・解析計算・WebSocket・自動アラート・終了前レポート |
 
-利用フロー: `/talkbalancer` → 飲み会運用ガイド（`/talkbalancer/party`）と機器選定ガイド（`/talkbalancer/hardware`）を確認 → 開始前宣言 → 同意確認（モード選択・テーブル人数/参加者名の登録）→ テーブル表示（テーブル中央に設置）。幹事は別端末で `/talkbalancer/remote` を開き、丁重アラートと話者バランス用の発話時間を記録する。マイク接続確認（`/talkbalancer/mic`）は Web Audio API による入力レベル表示のみで録音しない（Step 2）。外部機材がない場合はPC内蔵マイク簡易モードへ進み、0〜100の相対音量とdBFS参考値を確認できる。
+利用フロー: `/talkbalancer` → 飲み会運用ガイド（`/talkbalancer/party`）と機器選定ガイド（`/talkbalancer/hardware`）を確認 → 開始前宣言で全員の合意を記録 → 同意確認（モード選択・テーブル人数/参加者名の登録）→ マイク接続確認 → テーブル表示（テーブル中央に設置）。携帯1台モードから開始した場合は、同意後に `/talkbalancer/mobile` へ戻る。幹事は別端末で `/talkbalancer/remote` を開き、丁重アラートと話者バランス用の発話時間を記録する。マイク接続確認（`/talkbalancer/mic`）は Web Audio API による入力レベル表示のみで録音しない（Step 2）。外部機材がない場合はPC内蔵マイク簡易モードへ進み、0〜100の相対音量とdBFS参考値を確認できる。
 
 Android携帯1台で使う場合は `/talkbalancer/mobile` を開く。開始前宣言と同意後、この画面へ戻り、携帯内蔵マイクによる相対音量、テーブル向け通知表示、話者記録、9種の幹事通知を1画面で利用する。Web App ManifestとService Workerを備え、HTTPS配信時はホーム画面追加とstandalone表示が可能。表示専用モードはユーザー操作でFullscreen APIを要求し、5秒操作がなければヘッダーと幹事操作ボタンを隠す。画面タップで操作UIを戻せるため、終了手段を失わない。デモモードでは同一ブラウザのlocalStorage内で完結する。
 
@@ -54,3 +67,7 @@ F-04 の表示項目のうち「会話バランススコア」「話しすぎ傾
 - **プライバシー初期設定**: 録音保存 OFF / 文字起こし OFF / クラウド送信 OFF
 - **マイク第1候補**: Jabra Speak2 55 / Anker PowerConf S3
 - **将来展開**: Raspberry Pi 版「TalkBalancer Box」→ EC2/GPU クラウド版
+
+## 現在の検証結果
+
+2026-07-15時点で、Jest 22件、TalkBalancer APIのpytest 44件、TypeScript型チェック、ESLint、Next.js本番ビルドが成功している。ローカル統合版とCloudflare Pages版はいずれも主要画面のHTTP 200を確認済み。ESLintはエラー0で、TalkBalancer外の既存警告が2件残っている。
