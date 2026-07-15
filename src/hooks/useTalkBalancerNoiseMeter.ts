@@ -9,6 +9,7 @@ import {
 } from '@/lib/talkbalancer';
 import {
   classifyExternalMic,
+  clearMicPreference,
   loadMicPreference,
   saveMicPreference,
   TalkBalancerMicPreference,
@@ -21,6 +22,7 @@ export function useTalkBalancerNoiseMeter() {
   const [measuring, setMeasuring] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeMic, setActiveMic] = useState<TalkBalancerMicPreference | null>(null);
+  const [disconnected, setDisconnected] = useState(false);
 
   const streamRef = useRef<MediaStream | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
@@ -33,8 +35,9 @@ export function useTalkBalancerNoiseMeter() {
     const ws = wsRef.current;
     wsRef.current = null;
     if (ws && ws.readyState < WebSocket.CLOSING) ws.close();
-    streamRef.current?.getTracks().forEach((track) => track.stop());
+    const stream = streamRef.current;
     streamRef.current = null;
+    stream?.getTracks().forEach((track) => track.stop());
     ctxRef.current?.close().catch(() => {});
     ctxRef.current = null;
     setActiveMic(null);
@@ -43,6 +46,7 @@ export function useTalkBalancerNoiseMeter() {
 
   const start = useCallback(async () => {
     setError(null);
+    setDisconnected(false);
     stop();
     try {
       const preferred = loadMicPreference();
@@ -52,13 +56,21 @@ export function useTalkBalancerNoiseMeter() {
           audio: preferred?.deviceId ? { deviceId: { exact: preferred.deviceId } } : true,
         });
       } catch (micError) {
-        if (!preferred || (micError instanceof DOMException && micError.name === 'NotAllowedError')) throw micError;
+        const errorName = micError instanceof Error ? micError.name : '';
+        if (!preferred || errorName === 'NotAllowedError') throw micError;
+        clearMicPreference();
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       }
 
       streamRef.current = stream;
       const track = stream.getAudioTracks()[0];
       if (!track) throw new Error('音声入力がありません');
+      track.addEventListener('ended', () => {
+        if (streamRef.current !== stream) return;
+        stop();
+        setError(null);
+        setDisconnected(true);
+      });
       const settings = track.getSettings();
       const detectedMic: TalkBalancerMicPreference = {
         deviceId: settings.deviceId ?? '',
@@ -119,8 +131,9 @@ export function useTalkBalancerNoiseMeter() {
         setMeasuring(true);
       };
     } catch (micError) {
+      const errorName = micError instanceof Error ? micError.name : '';
       setError(
-        micError instanceof DOMException && micError.name === 'NotAllowedError'
+        errorName === 'NotAllowedError'
           ? 'マイクの使用が許可されませんでした'
           : 'マイクを開けませんでした'
       );
@@ -133,6 +146,7 @@ export function useTalkBalancerNoiseMeter() {
   return {
     activeMic,
     analysis,
+    disconnected,
     error,
     measuring,
     start,

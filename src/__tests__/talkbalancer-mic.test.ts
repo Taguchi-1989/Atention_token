@@ -1,5 +1,6 @@
 import {
   classifyExternalMic,
+  clearMicPreference,
   loadMicPreference,
   rmsToDbfs,
   rmsToRelativeLevel,
@@ -39,5 +40,8 @@ describe('TalkBalancer mic helpers', () => {
       label: 'Microphone Array (Realtek Audio)',
       isExternal: false,
     });
+
+    clearMicPreference();
+    expect(loadMicPreference()).toBeNull();
   });
 });

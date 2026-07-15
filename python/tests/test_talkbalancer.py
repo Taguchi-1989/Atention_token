@@ -80,6 +80,28 @@ class TestSessionLifecycle:
         assert res.json()["alerts"] == []
         assert res.json()["seq"] == 0
 
+    def test_start_session_records_agreed_at(self):
+        res = client.post("/api/talkbalancer/session", json={
+            "title": "t", "mode": "volume_only", "agreedAt": "2026-07-04T10:00:00+00:00",
+        })
+        assert res.status_code == 201
+        assert res.json()["session"]["agreedAt"] == "2026-07-04T10:00:00+00:00"
+        res = client.get("/api/talkbalancer/session")
+        assert res.json()["session"]["agreedAt"] == "2026-07-04T10:00:00+00:00"
+
+    def test_start_session_without_agreed_at(self):
+        res = client.post("/api/talkbalancer/session", json={})
+        assert res.status_code == 201
+        assert res.json()["session"]["agreedAt"] is None
+
+    def test_new_session_replaces_agreed_at(self):
+        client.post("/api/talkbalancer/session", json={
+            "title": "t", "mode": "volume_only", "agreedAt": "2026-07-04T10:00:00+00:00",
+        })
+        res = client.post("/api/talkbalancer/session", json={"title": "t2", "mode": "volume_only"})
+        assert res.status_code == 201
+        assert res.json()["session"]["agreedAt"] is None
+
 
 class TestAlerts:
     def test_alert_requires_session(self):
@@ -190,6 +212,30 @@ class TestReport:
         client.delete("/api/talkbalancer/session")
         res = client.get("/api/talkbalancer/report")
         assert res.json() == {"active": False, "session": None}
+
+    def test_privacy_derived_from_mode(self):
+        """レポートの privacy は解析モードから算出される（ハードコードでない）。"""
+        client.post("/api/talkbalancer/session", json={"mode": "volume_only"})
+        privacy = client.get("/api/talkbalancer/report").json()["privacy"]
+        assert privacy == {
+            "recording": False,
+            "transcription": False,
+            "cloudUpload": False,
+            "savePolicy": "none",
+        }
+
+    def test_privacy_mapping_matches_frontend(self):
+        """_privacy_for_mode はフロント derivePrivacy と同一マッピング。"""
+        from attention_ledger.api import talkbalancer as tb
+
+        assert tb._privacy_for_mode("volume_only") == {
+            "recording": False, "transcription": False,
+            "cloudUpload": False, "savePolicy": "none",
+        }
+        assert tb._privacy_for_mode("transcript") == {
+            "recording": False, "transcription": True,
+            "cloudUpload": False, "savePolicy": "none",
+        }
 
 
 class TestSpeakerBalance:

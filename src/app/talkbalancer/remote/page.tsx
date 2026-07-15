@@ -17,6 +17,7 @@ import {
   TbSpeakerStats,
   TbTranscriptNote,
 } from '@/lib/talkbalancer';
+import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
 
 // F-05 幹事リモコン
 export default function RemotePage() {
@@ -257,6 +258,8 @@ export default function RemotePage() {
           </div>
         )}
         {error && <p className="text-sm text-error">{error}</p>}
+
+        <PrivacyBar mode={session?.mode ?? null} className="pt-2" />
       </div>
     </div>
   );

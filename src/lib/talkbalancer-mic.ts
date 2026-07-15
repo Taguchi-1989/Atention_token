@@ -46,3 +46,12 @@ export function loadMicPreference(): TalkBalancerMicPreference | null {
     return null;
   }
 }
+
+export function clearMicPreference(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(MIC_PREFERENCE_KEY);
+  } catch {
+    // プライベートモード等で削除できなくても、既定マイクへの切替は継続する。
+  }
+}

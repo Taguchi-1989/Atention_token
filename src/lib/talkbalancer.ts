@@ -25,6 +25,7 @@ export interface TbSession {
   startedAt: string;
   mode: SessionMode;
   savePolicy: 'none';
+  agreedAt?: string | null;
 }
 
 export interface TbParticipant {
@@ -130,6 +131,31 @@ export const NOISE_LABELS: Record<NoiseCategory, string> = {
   very_loud: 'かなり高め',
 };
 
+// 解析モードの表示ラベル（全画面共通。各ページの局所 MODE_LABELS とは別に共有表示で使う）
+export const TB_MODE_LABELS: Record<SessionMode, string> = {
+  volume_only: 'モードA：音量のみ',
+  balance: 'モードB：音量＋発話バランス',
+  transcript: 'モードC：文字起こしあり',
+};
+
+export interface TbPrivacy {
+  recording: boolean;
+  transcription: boolean;
+  cloudUpload: boolean;
+}
+
+// 解析モードからプライバシー状態を導出する（10.1 常時表示用）。
+// backend の _privacy_for_mode と同一マッピングにすること：
+// transcript のみ文字起こしメモが ON。録音保存とクラウド送信は常に OFF。
+export function derivePrivacy(mode: SessionMode | null | undefined): TbPrivacy {
+  const isTranscript = mode === 'transcript';
+  return {
+    recording: false,
+    transcription: isTranscript,
+    cloudUpload: false,
+  };
+}
+
 const TB = `${API_BASE_URL}/talkbalancer`;
 
 // ── デモモード判定 ──
@@ -187,6 +213,7 @@ export async function startTbSession(
   title: string,
   mode: SessionMode,
   participantNames?: string[],
+  agreedAt?: string | null,
 ): Promise<SessionState> {
   const res = await tbFetch('/session', {
     method: 'POST',
@@ -196,14 +223,17 @@ export async function startTbSession(
       mode,
       participantCount: participantNames?.length,
       participantNames,
+      agreedAt: agreedAt ?? null,
     }),
   });
-  if (!res) return demo.startSession(title, mode, participantNames);
+  if (!res) return demo.startSession(title, mode, participantNames, agreedAt ?? null);
   if (!res.ok) throw new Error('Failed to start session');
   return res.json();
 }
 
 export async function endTbSession(): Promise<void> {
+  // 会が終わったら合意フラグも消す（次の会で改めて宣言→合意させる。F-01）
+  clearTbAgreedAt();
   const res = await tbFetch('/session', { method: 'DELETE' });
   if (!res) return demo.endSession();
   if (!res.ok) throw new Error('Failed to end session');
@@ -345,3 +375,64 @@ export const DECLARATION_LINES = [
   '店内がうるさすぎる場合は、無理に全体会話を続けない',
   'TalkBalancerの表示は、個人攻撃ではなく場を整える合図とします',
 ];
+
+// F-01 合意ゲート用
+const AGREED_KEY = 'tb_agreed_at_v1';
+// F-03 マイク選択の端末ローカル保持(deviceIdはブラウザローカルなのでサーバーSessionには載せない)
+const MIC_DEVICE_KEY = 'tb_mic_device_v1';
+
+export interface TbMicDevice {
+  deviceId: string;
+  label: string;
+  isExternal: boolean;
+}
+
+// F-01 合意ゲート用
+export function setTbAgreedAt(iso: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(AGREED_KEY, iso);
+  } catch { /* プライベートモード等で保存不可でも動作は継続 */ }
+}
+
+// F-01 合意ゲート用
+export function getTbAgreedAt(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.sessionStorage.getItem(AGREED_KEY);
+  } catch { return null; }
+}
+
+// F-01 合意ゲート用。セッション終了時に消し、次の会では改めて宣言→合意させる。
+export function clearTbAgreedAt(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(AGREED_KEY);
+  } catch { /* プライベートモード等で削除不可でも動作は継続 */ }
+}
+
+// F-03 マイク選択の端末ローカル保持(deviceIdはブラウザローカルなのでサーバーSessionには載せない)
+export function saveTbMicDevice(d: TbMicDevice): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(MIC_DEVICE_KEY, JSON.stringify(d));
+  } catch { /* プライベートモード等で保存不可でも動作は継続 */ }
+}
+
+// F-03 マイク選択の端末ローカル保持(deviceIdはブラウザローカルなのでサーバーSessionには載せない)
+export function loadTbMicDevice(): TbMicDevice | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(MIC_DEVICE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as TbMicDevice;
+  } catch { return null; }
+}
+
+// F-03 マイク選択の端末ローカル保持(deviceIdはブラウザローカルなのでサーバーSessionには載せない)
+export function clearTbMicDevice(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(MIC_DEVICE_KEY);
+  } catch { /* プライベートモード等で保存不可でも動作は継続 */ }
+}

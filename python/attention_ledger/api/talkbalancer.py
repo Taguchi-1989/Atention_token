@@ -24,6 +24,10 @@ router = APIRouter(prefix="/talkbalancer", tags=["talkbalancer"])
 
 SessionMode = Literal["volume_only", "balance", "transcript"]
 
+# 実装済みの解析モード。balance は手動話者記録、transcript は保存しない
+# セッション内メモとして提供する。
+IMPLEMENTED_MODES: frozenset = frozenset({"volume_only", "balance", "transcript"})
+
 AlertType = Literal[
     "talk_too_much",     # 話しすぎ
     "too_loud",          # うるさすぎ
@@ -60,6 +64,8 @@ class SessionCreate(BaseModel):
     mode: SessionMode = "volume_only"
     participantCount: int = Field(default=4, ge=1, le=20)
     participantNames: List[str] = Field(default_factory=list, max_length=20)
+    # F-01 開始前宣言に全員が合意した時刻(ISO8601, クライアント申告)。未指定可
+    agreedAt: Optional[str] = Field(default=None, max_length=40)
 
 
 class Session(BaseModel):
@@ -68,6 +74,7 @@ class Session(BaseModel):
     startedAt: str
     mode: SessionMode
     savePolicy: Literal["none"] = "none"  # MVP は保存なし固定
+    agreedAt: Optional[str] = None
 
 
 class AlertCreate(BaseModel):
@@ -243,16 +250,38 @@ def get_session():
         }
 
 
+def _privacy_for_mode(mode: SessionMode) -> dict:
+    """解析モードからプライバシー状態を導出する（10.1 常時表示用）。
+
+    フロント derivePrivacy（src/lib/talkbalancer.ts）と同一マッピングにすること：
+    transcript のみ文字起こしメモが True。音声の録音保存とクラウド送信は
+    どのモードでも行わない。
+    """
+    is_transcript = mode == "transcript"
+    return {
+        "recording": False,
+        "transcription": is_transcript,
+        "cloudUpload": False,
+        "savePolicy": "none",
+    }
+
+
 @router.post("/session", status_code=201)
 def start_session(body: SessionCreate):
     """セッション開始（F-02 同意確認後に呼ぶ）。既存セッションは置き換える。"""
     global _session, _seq, _participants
+    if body.mode not in IMPLEMENTED_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"解析モード '{body.mode}' は未実装です",
+        )
     with _lock:
         _session = Session(
             id=uuid.uuid4().hex[:12],
             title=body.title,
             startedAt=_now_iso(),
             mode=body.mode,
+            agreedAt=body.agreedAt,
         )
         _participants = _make_participants(body.participantNames, body.participantCount)
         _alerts.clear()
@@ -450,12 +479,7 @@ def get_report():
             "analysis": _compute_analysis_locked(now),
             "speakerStats": _speaker_stats_locked(now),
             "transcriptNotes": list(_transcript_notes)[-20:],
-            "privacy": {
-                "recording": False,
-                "transcription": _session.mode == "transcript",
-                "cloudUpload": False,
-                "savePolicy": "none",
-            },
+            "privacy": _privacy_for_mode(_session.mode),
         }
 
 

@@ -13,6 +13,9 @@ import type {
 
 const KEY = 'talkbalancer_demo_v1';
 
+// backend IMPLEMENTED_MODES と同じ多層防御。
+const DEMO_IMPLEMENTED_MODES: SessionMode[] = ['volume_only', 'balance', 'transcript'];
+
 // サーバー側 _ALERT_MESSAGES と同内容（F-06 丁重アラート文言）
 const MESSAGES: Record<AlertType, string> = {
   talk_too_much: 'お話タイムが少し長めです。\nそろそろ別の人にも振ると、さらに良い場になりそうです。',
@@ -81,9 +84,16 @@ function makeParticipants(names?: string[]): TbParticipant[] {
   }));
 }
 
-export function startSession(title: string, mode: SessionMode, participantNames?: string[]): SessionState {
+export function startSession(
+  title: string,
+  mode: SessionMode,
+  participantNames?: string[],
+  agreedAt: string | null = null,
+): SessionState {
   if (title.length > 100) throw new Error('会の名前は100文字以内で入力してください');
-  resetMetrics();
+  if (!DEMO_IMPLEMENTED_MODES.includes(mode)) {
+    throw new Error(`解析モード '${mode}' は未実装です`);
+  }
   const participants = makeParticipants(participantNames);
   const state: DemoState = {
     session: {
@@ -92,6 +102,7 @@ export function startSession(title: string, mode: SessionMode, participantNames?
       startedAt: new Date().toISOString(),
       mode,
       savePolicy: 'none',
+      agreedAt,
     },
     seq: 0,
     alerts: [],
@@ -99,12 +110,13 @@ export function startSession(title: string, mode: SessionMode, participantNames?
     speakerEvents: [],
     transcriptNotes: [],
   };
+  resetLocalMetrics(); // サーバー start_session の _reset_metrics_locked() に対応
   save(state);
   return { active: true, session: state.session, seq: 0, participants };
 }
 
 export function endSession(): void {
-  resetMetrics();
+  resetLocalMetrics();
   save(emptyState());
 }
 
@@ -146,8 +158,9 @@ const metricBuf: { t: number; rms: number }[] = [];
 let loudSince: number | null = null;
 let lastAuto = 0;
 
-function resetMetrics(): void {
-  metricBuf.length = 0;
+// サーバー _reset_metrics_locked と同範囲(計測バッファ／騒音継続判定／自動アラートのクールダウン)
+function resetLocalMetrics(): void {
+  metricBuf.length = 0;   // const配列なので length=0 で中身を消す(再代入不可)
   loudSince = null;
   lastAuto = 0;
 }
