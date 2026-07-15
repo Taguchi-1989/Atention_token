@@ -1,4 +1,4 @@
-const CACHE_NAME = 'talkbalancer-pwa-v2';
+const CACHE_NAME = 'talkbalancer-pwa-v4';
 
 self.addEventListener('install', () => {
   self.skipWaiting();

@@ -2,6 +2,7 @@ import React from 'react';
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import PwaRegistrar from '@/components/PwaRegistrar';
+import TalkBalancerLiveStatus from '@/components/talkbalancer/TalkBalancerLiveStatus';
 
 const basePath = process.env.BASE_PATH || '';
 
@@ -43,6 +44,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <PwaRegistrar />
         {children}
+        <TalkBalancerLiveStatus />
       </body>
     </html>
   );

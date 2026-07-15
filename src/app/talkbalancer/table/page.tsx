@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Wine, Settings2, Mic, MicOff, Volume2, Gauge, Activity, HandHeart } from 'lucide-react';
-import TalkBalancerSpeakerPie from '@/components/TalkBalancerSpeakerPie';
 import { useTalkBalancerNoiseMeter } from '@/hooks/useTalkBalancerNoiseMeter';
 import { loadMicPreference, rmsToRelativeLevel } from '@/lib/talkbalancer-mic';
 import {
@@ -18,10 +17,18 @@ const ALERT_SHOW_MS = 25000;
 const SPEAKER_POLL_MS = 5000;
 const FACILITATION_GRACE_MS = 20 * 60 * 1000;
 
+function transcriptionPublicLabel(state?: string): string {
+  if (state === 'listening' || state === 'processing') return '動作中';
+  if (state === 'starting') return '準備中';
+  if (state === 'unavailable') return 'モデル未導入';
+  if (state === 'error') return '確認が必要';
+  return '停止中';
+}
+
 const MODE_LABELS: Record<string, string> = {
   volume_only: '解析モード：A（音量のみ）',
   balance: '解析モード：B（音量＋発話バランス）',
-  transcript: '解析モード：C（文字起こしあり）',
+  transcript: '解析モード：C（ローカル文字起こし）',
 };
 
 function buildFacilitationCue(stats: TbSpeakerStats | null, session: TbSession | null) {
@@ -43,8 +50,8 @@ function buildFacilitationCue(stats: TbSpeakerStats | null, session: TbSession |
   if (silentPeople.length > 0) {
     return {
       title: '話を振るタイミングです',
-      message: `${dominant.name}の発話が全体の${share}%です。まだ話せていない人がいるので、一度ほかの人へ振ると場が広がりそうです。`,
-      action: `${silentPeople[0].name}に「最近どうですか？」と振ってみましょう。`,
+      message: `一人の発話が全体の${share}%です。まだ話せていない人がいるので、一度ほかの人へ振ると場が広がりそうです。`,
+      action: 'まだ話していない人へ「最近どうですか？」と振ってみましょう。',
       tone: 'warning',
     };
   }
@@ -52,15 +59,15 @@ function buildFacilitationCue(stats: TbSpeakerStats | null, session: TbSession |
   if (quiet && dominant.seconds >= quiet.seconds * 2) {
     return {
       title: '会話を回す合図です',
-      message: `${dominant.name}の発話が全体の${share}%です。${quiet.name}にも話す余地を作ると、バランスが整いそうです。`,
-      action: `${quiet.name}に短く感想を聞いてみましょう。`,
+      message: `一人の発話が全体の${share}%です。ほかの人にも話す余地を作ると、バランスが整いそうです。`,
+      action: '近くの人に短く感想を聞いてみましょう。',
       tone: 'primary',
     };
   }
 
   return {
     title: '少し偏りがあります',
-    message: `${dominant.name}の発話が全体の${share}%です。ここで一度、別の人にも話題を渡すとよさそうです。`,
+    message: `一人の発話が全体の${share}%です。ここで一度、別の人にも話題を渡すとよさそうです。`,
     action: '近くの人へ「どう思いますか？」と振ってみましょう。',
     tone: 'primary',
   };
@@ -79,9 +86,11 @@ export default function TableDisplayPage() {
     disconnected,
     error: micError,
     measuring,
+    measuringElsewhere,
+    transcription,
     start: startMeasure,
     stop: stopMeasure,
-  } = useTalkBalancerNoiseMeter();
+  } = useTalkBalancerNoiseMeter({ transcriptionEnabled: session?.mode === 'transcript' });
 
   const seqRef = useRef(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -172,11 +181,11 @@ export default function TableDisplayPage() {
   // P1-3: mic確認済み（tb_mic_device_v1 あり）なら table 到着時に自動計測を開始する。
   // StrictMode の二重effect実行でも二重起動しないよう autoStartRef でガードする。
   useEffect(() => {
-    if (checked && session && loadMicPreference() && !autoStartRef.current) {
+    if (checked && session && loadMicPreference() && !measuringElsewhere && !autoStartRef.current) {
       autoStartRef.current = true;
       startMeasure();
     }
-  }, [checked, session, startMeasure]);
+  }, [checked, measuringElsewhere, session, startMeasure]);
   if (checked && !session) {
     return (
       <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center gap-6 p-6 text-center">
@@ -220,6 +229,13 @@ export default function TableDisplayPage() {
         <p className="mt-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
           開始前宣言の合意が記録されていません。<Link href="/talkbalancer/declaration" className="underline">宣言画面へ</Link>
         </p>
+      )}
+
+      {session?.mode === 'transcript' && (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-secondary/30 bg-secondary/5 px-3 py-2 text-xs text-text-muted">
+          <span>文字起こし：{transcriptionPublicLabel(transcription?.state)}</span>
+          <span>{transcription?.currentSpeakerKey ? '発話を検知中' : '発話待ち'} ／ 録音保存なし</span>
+        </div>
       )}
 
       {/* メイン：丁重アラート or 平常時メッセージ */}
@@ -266,17 +282,8 @@ export default function TableDisplayPage() {
               </div>
             </div>
           )}
-          <div className="grid gap-3 lg:grid-cols-2">
-            <TalkBalancerSpeakerPie
-              title="話者バランス（全体）"
-              data={speakerStats.total}
-              totalSeconds={speakerStats.totalSeconds}
-            />
-            <TalkBalancerSpeakerPie
-              title="話者バランス（直近5分）"
-              data={speakerStats.recent5m}
-              totalSeconds={speakerStats.recent5mSeconds}
-            />
+          <div className="rounded-xl border border-border bg-surface px-4 py-3 text-center text-sm text-text-muted">
+            会話バランスを匿名で見守っています。個人名と正確な割合は幹事画面だけに表示します。
           </div>
         </section>
       )}
@@ -316,7 +323,7 @@ export default function TableDisplayPage() {
               />
             </div>
             <p className="mt-2 text-center text-[11px] text-text-muted">
-              ※ 自動話者分離は未実装です。発話バランスは幹事が話者をタップして記録し、声かけは幹事リモコンから行えます。
+              ※ 自動話者はローカル推定です。未対応の話者名や重なった発話は幹事リモコンで確認できます。
             </p>
           </>
         ) : (
@@ -335,7 +342,9 @@ export default function TableDisplayPage() {
                 onClick={startMeasure}
                 className="inline-flex items-center gap-2 rounded-xl border border-primary/50 bg-primary/10 px-5 py-3 text-primary hover:bg-primary/20"
               >
-                <Mic size={16} /> 騒音メーターを開始（録音はしません）
+                <Mic size={16} /> {measuringElsewhere
+                  ? '別画面で計測中・この画面へ切替'
+                  : session?.mode === 'transcript' ? '音量計測＋文字起こしを開始' : '騒音メーターを開始（録音はしません）'}
               </button>
               {micError && <span className="text-error">{micError}</span>}
             </div>

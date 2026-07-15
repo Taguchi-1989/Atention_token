@@ -16,19 +16,23 @@ TalkBalancer のPWA版は Cloudflare Pages で公開しています。
 - **携帯1台モード**: <https://talkbalancer.pages.dev/talkbalancer/mobile>
 - **機器選定ガイド**: <https://talkbalancer.pages.dev/talkbalancer/hardware>
 
-Cloudflare Pages は静的ホスティングのためFastAPIは動きませんが、TalkBalancerは自動的に**端末内デモモード**へ切り替わります。セッション・通知・参加者情報は同じブラウザの `localStorage` にのみ保持され、音声波形は保存・クラウド送信されません。API・WebSocketを含む構成は、下記のローカル実行またはDockerで利用できます。
+Cloudflare Pages は静的ホスティングのためFastAPIは動きませんが、TalkBalancerは自動的に**端末内デモモード**へ切り替わります。セッション・通知・参加者情報は同じブラウザの `localStorage` にのみ保持され、音声波形は保存・クラウド送信されません。ローカル文字起こし・自動話者切替は公開PWAでは動かず、API・WebSocketを含む下記のローカル実行またはDockerで利用できます。
 
 従来のGitHub Pages版: <https://taguchi-1989.github.io/Atention_token/>
 
 ---
 
-## TalkBalancer v0.3
+## TalkBalancer v0.4
 
-飲み会や懇親会で、幹事が言いにくい注意を匿名の丁寧な通知で代行し、発話バランスや店内音量を見える化する進行支援アプリです。外部マイクがなくてもPC・携帯の内蔵マイク簡易モードで開始でき、相対音量を数値表示します。AndroidではPWAとしてホーム画面へ追加でき、[携帯1台モード](src/app/talkbalancer/mobile/page.tsx)でテーブル表示・マイク計測・幹事操作を同じ画面から利用できます。表示専用モードでは全画面化し、ヘッダーと操作ボタンを自動で隠して画面占有を抑えます。録音保存とクラウド送信は初期設定で OFF、セッション終了時に通知・発話・メモ・騒音データを削除できます。
+飲み会や懇親会で、幹事が言いにくい注意を匿名の丁寧な通知で代行し、発話バランスや店内音量を見える化する進行支援アプリです。外部マイクがなくてもPC・携帯の内蔵マイク簡易モードで開始できます。モードCでは、明示同意後に短いPCM音声を自宅PCのメモリ上だけで処理し、ローカル文字起こしと現在話者の自動切替を行います。録音ファイルとクラウド送信は作りません。参加者向け画面には匿名の状態だけを出し、個人名・割合・文字起こし本文・話者対応は幹事画面に限定します。全画面の右下ランプは停止中がグレー、実際のマイク使用中だけ赤く点灯します。
 
-[8枚組の販促・取扱説明資料を見る](public/manual/talkbalancer-v0.3/README.md)
+[10枚組の販促・取扱説明資料を見る](public/manual/talkbalancer-v0.4/README.md)
 
 ![TalkBalancer v0.3 取扱説明書](public/manual/talkbalancer-v0.3/01-quick-start.png)
+
+![専用マイクなしで使うローカルAI構成](public/manual/talkbalancer-v0.4/09-local-ai-architecture.png)
+
+![話者識別と音源分離の違い](public/manual/talkbalancer-v0.4/10-speaker-identification-limits.png)
 
 ### TalkBalancerをローカルで動かす
 
@@ -41,6 +45,8 @@ npm run build
 # 別ターミナルで起動（Windowsは python の代わりに py でも可）
 cd python
 python -m pip install -r requirements.lock
+# モードCのローカル文字起こし・高精度話者推定も使う場合
+python -m pip install -r requirements-audio-ai.txt
 python -m uvicorn attention_ledger.api.main:app --host 127.0.0.1 --port 8010
 ```
 
@@ -52,13 +58,13 @@ python -m uvicorn attention_ledger.api.main:app --host 127.0.0.1 --port 8010
 
 `npm run build` が生成する `out/` をFastAPIが配信するため、フロントとAPIを1つのURLで確認できます。
 
-### 動作確認状況（2026-07-15）
+### 動作確認状況（2026-07-16）
 
 | 確認項目 | 結果 |
 | --- | --- |
 | TypeScript型チェック | 成功 |
-| Jest | 22件成功 |
-| TalkBalancer API pytest | 44件成功 |
+| Jest | 29件成功 |
+| Python pytest | 92件成功 |
 | ESLint | エラー0（既存警告2件） |
 | Next.js本番ビルド | 21ページ生成成功 |
 | ローカル統合版 | `/talkbalancer`・`/mobile`・`/hardware` がHTTP 200 |

@@ -202,6 +202,7 @@ class TestReport:
         assert body["privacy"] == {
             "recording": False,
             "transcription": False,
+            "localAudioProcessing": False,
             "cloudUpload": False,
             "savePolicy": "none",
         }
@@ -220,6 +221,7 @@ class TestReport:
         assert privacy == {
             "recording": False,
             "transcription": False,
+            "localAudioProcessing": False,
             "cloudUpload": False,
             "savePolicy": "none",
         }
@@ -230,10 +232,12 @@ class TestReport:
 
         assert tb._privacy_for_mode("volume_only") == {
             "recording": False, "transcription": False,
+            "localAudioProcessing": False,
             "cloudUpload": False, "savePolicy": "none",
         }
         assert tb._privacy_for_mode("transcript") == {
             "recording": False, "transcription": True,
+            "localAudioProcessing": True,
             "cloudUpload": False, "savePolicy": "none",
         }
 
@@ -455,3 +459,70 @@ class TestMetricsAndAnalysis:
         res = client.get("/api/talkbalancer/alerts")
         autos = [a for a in res.json()["alerts"] if a["source"] == "auto"]
         assert len(autos) == 1
+
+
+class TestLocalTranscription:
+    def test_status_and_privacy_are_explicit(self):
+        client.post("/api/talkbalancer/session", json={"mode": "transcript"})
+        status = client.get("/api/talkbalancer/transcription/status").json()
+        assert status["state"] == "off"
+        assert status["audioRetention"] == "memory-only"
+        assert status["cloudUpload"] is False
+
+        report = client.get("/api/talkbalancer/report").json()
+        assert report["privacy"]["localAudioProcessing"] is True
+        assert report["privacy"]["recording"] is False
+        assert report["privacy"]["cloudUpload"] is False
+
+    def test_transcription_websocket_detects_anonymous_speaker(self, monkeypatch):
+        import array
+        import math
+
+        monkeypatch.setenv("TB_SPEAKER_ENGINE", "acoustic")
+
+        client.post("/api/talkbalancer/session", json={
+            "mode": "transcript",
+            "participantNames": ["田中", "佐藤"],
+        })
+        pcm = array.array("h", (
+            int(12000 * math.sin(2 * math.pi * 220 * index / 16000))
+            for index in range(16000 * 3)
+        )).tobytes()
+
+        with client.websocket_connect("/api/talkbalancer/ws/transcription") as ws:
+            initial = ws.receive_json()
+            assert initial["type"] == "transcription_status"
+            ws.send_json({"type": "start", "sourceId": "test-source", "sampleRate": 16000})
+            assert ws.receive_json()["state"] in ("listening", "unavailable")
+            ws.send_bytes(pcm)
+            speaker = ws.receive_json()
+            assert speaker["type"] == "speaker_status"
+            assert speaker["currentSpeakerKey"] == "voice_1"
+            assert speaker["currentSpeakerName"] == "話者1"
+
+        mapped = client.put(
+            "/api/talkbalancer/transcription/speakers/voice_1",
+            json={"participantId": "speaker_1"},
+        )
+        assert mapped.status_code == 200
+        cluster = mapped.json()["clusters"][0]
+        assert cluster["participantId"] == "speaker_1"
+        assert cluster["name"] == "田中"
+
+        with client.websocket_connect("/api/talkbalancer/ws/transcription") as ws:
+            ws.receive_json()
+            ws.send_json({"type": "start", "sourceId": "mapped-test", "sampleRate": 16000})
+            ws.receive_json()
+            ws.send_bytes(pcm)
+            assert ws.receive_json()["currentSpeakerName"] == "田中"
+        stats = client.get("/api/talkbalancer/speaker-stats").json()
+        assert stats["total"][0]["seconds"] == 3
+        assert stats["latestEvent"]["source"] == "auto"
+
+    def test_speaker_mapping_rejects_unknown_cluster(self):
+        client.post("/api/talkbalancer/session", json={"mode": "transcript"})
+        res = client.put(
+            "/api/talkbalancer/transcription/speakers/voice_99",
+            json={"participantId": "speaker_1"},
+        )
+        assert res.status_code == 404

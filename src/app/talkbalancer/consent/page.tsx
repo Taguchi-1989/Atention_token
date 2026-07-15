@@ -3,9 +3,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 import { startTbSession, getTbAgreedAt, SessionMode } from '@/lib/talkbalancer';
 import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
+import { TalkBalancerSetupSteps } from '@/components/talkbalancer/TalkBalancerSetupSteps';
+
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
 // F-02 同意確認：解析モードを選んでからセッションを開始する
 const MODES: { mode: SessionMode; label: string; desc: string }[] = [
@@ -21,8 +25,8 @@ const MODES: { mode: SessionMode; label: string; desc: string }[] = [
   },
   {
     mode: 'transcript',
-    label: 'モードC：文字起こしあり',
-    desc: '明示同意のうえで、録音保存なしの文字起こしメモをメモリ内に残します',
+    label: 'モードC：ローカル文字起こし＋自動話者',
+    desc: '短い音声断片を自宅PCで一時処理し、文字起こしと現在話者を表示します（録音保存・クラウド送信なし）',
   },
 ];
 
@@ -36,6 +40,7 @@ export default function ConsentPage() {
   const [error, setError] = useState<string | null>(null);
   const [agreedAt, setAgreedAt] = useState<string | null>(null);
   const [agreedChecked, setAgreedChecked] = useState(false);
+  const [localAudioAgreed, setLocalAudioAgreed] = useState(false);
 
   // hydration不一致回避のため初期描画では判定せず、マウント後にsessionStorageを読む
   useEffect(() => {
@@ -84,6 +89,8 @@ export default function ConsentPage() {
 
         <h1 className="text-2xl font-bold">同意確認</h1>
 
+        <TalkBalancerSetupSteps current={2} />
+
         {agreedChecked && !agreedAt && (
           <p className="rounded-xl border border-warning/40 bg-warning/10 p-4 text-sm text-warning">
             開始前宣言の合意がまだ記録されていません。先に参加者へ宣言を共有し、合意してから進んでください。
@@ -106,39 +113,6 @@ export default function ConsentPage() {
           />
         </label>
 
-        <section className="rounded-xl border border-border bg-surface p-4 space-y-4">
-          <div>
-            <h2 className="font-semibold">テーブル人数</h2>
-            <p className="mt-1 text-sm text-text-muted">
-              MVPでは幹事が話者をタップして記録します。将来の話者分離はこの参加者ラベルに接続します。
-            </p>
-          </div>
-          <label className="block space-y-2">
-            <span className="text-sm text-text-muted">人数</span>
-            <input
-              type="number"
-              min={1}
-              max={20}
-              value={participantCount}
-              onChange={(e) => handleCountChange(Number(e.target.value))}
-              className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:border-primary"
-            />
-          </label>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {participantNames.slice(0, participantCount).map((name, i) => (
-              <label key={i} className="block space-y-1">
-                <span className="text-xs text-text-muted">参加者 {i + 1}</span>
-                <input
-                  value={name}
-                  maxLength={30}
-                  onChange={(e) => handleNameChange(i, e.target.value)}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-                />
-              </label>
-            ))}
-          </div>
-        </section>
-
         <div className="space-y-3">
           {MODES.map((m) => (
             <button
@@ -159,20 +133,94 @@ export default function ConsentPage() {
           ))}
         </div>
 
+        {mode !== 'volume_only' && (
+          <section className="rounded-xl border border-border bg-surface p-4 space-y-4">
+            <div>
+              <h2 className="font-semibold">参加者を設定</h2>
+              <p className="mt-1 text-sm text-text-muted">
+                {mode === 'transcript'
+                  ? '最初は「話者1」などで自動識別し、幹事画面で参加者名へ一度対応づけます。'
+                  : '発話時間を記録するときに使う名前です。参加者向け画面には表示しません。'}
+              </p>
+            </div>
+            <label className="block space-y-2">
+              <span className="text-sm text-text-muted">人数</span>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={participantCount}
+                onChange={(e) => handleCountChange(Number(e.target.value))}
+                className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:border-primary"
+              />
+            </label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {participantNames.slice(0, participantCount).map((name, i) => (
+                <label key={i} className="block space-y-1">
+                  <span className="text-xs text-text-muted">参加者 {i + 1}</span>
+                  <input
+                    value={name}
+                    maxLength={30}
+                    onChange={(e) => handleNameChange(i, e.target.value)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                  />
+                </label>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {mode === 'transcript' && (
+          <section className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+            <div>
+              <h2 className="font-semibold">モードCでできること・できないこと</h2>
+              <p className="mt-1 text-sm leading-relaxed text-text-muted">
+                事前の声登録なしで話者を約3秒ごとに識別します。ただし、同時に重なった声を別々の音声へ分離する機能ではありません。
+                AI処理にはローカルPCが必要で、外付けマイクは任意です。
+              </p>
+            </div>
+            <Image
+              src={`${basePath}/manual/talkbalancer-v0.4/10-speaker-identification-limits.png`}
+              alt="順番に話す人の識別には対応し、同時発話の音源分離には対応していないことを示す図"
+              width={1664}
+              height={935}
+              unoptimized
+              className="h-auto w-full rounded-lg border border-white/10"
+            />
+            <Link href="/talkbalancer/hardware" className="inline-flex text-sm font-semibold text-primary hover:underline">
+              機器構成と精度の説明を詳しく見る
+            </Link>
+          </section>
+        )}
+
         <PrivacyBar mode={mode} variant="card" />
-        <p className="text-xs text-text-muted">
-          {mode === 'balance'
-            ? '発話時間は参加者ラベルごとにメモリ内で集計し、終了時に削除します。'
-            : mode === 'transcript'
-              ? '文字起こしメモはメモリ内のみで保持し、音声は保存しません。'
-              : '終了時にすべてのデータを削除できます。'}
-        </p>
+        {mode === 'transcript' && (
+          <label className="flex items-start gap-3 rounded-xl border border-secondary/40 bg-secondary/5 p-4 text-sm">
+            <input
+              type="checkbox"
+              checked={localAudioAgreed}
+              onChange={(event) => setLocalAudioAgreed(event.target.checked)}
+              className="mt-1 h-4 w-4 accent-cyan-400"
+            />
+            <span>
+              <span className="block font-semibold">ローカル音声解析に同意します</span>
+              <span className="mt-1 block leading-relaxed text-text-muted">音声は自宅PCへ一時送信され、メモリ上の短い断片として処理後に破棄されます。録音ファイルとクラウド送信はありません。</span>
+            </span>
+          </label>
+        )}
+        {mode !== 'volume_only' && (
+          <p className="text-xs text-text-muted">
+            {mode === 'balance'
+              ? '発話時間は参加者ラベルごとにメモリ内で集計し、終了時に削除します。'
+              : '文字だけをセッション中のメモリに保持し、生音声は短時間処理後に破棄します。'}
+          </p>
+        )}
 
         {error && <p className="text-sm text-error">{error}</p>}
 
         <button
           onClick={handleStart}
-          disabled={starting || (agreedChecked && !agreedAt)}
+          disabled={starting || (agreedChecked && !agreedAt) || (mode === 'transcript' && !localAudioAgreed)}
           className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-secondary px-6 py-4 font-semibold text-black hover:opacity-90 disabled:opacity-50"
         >
           {starting ? <Loader2 size={18} className="animate-spin" /> : null}

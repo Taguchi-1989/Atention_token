@@ -1,6 +1,9 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        INSTALL_AUDIO_AI: ${INSTALL_AUDIO_AI:-false}
     ports:
       - "${APP_PORT:-8000}:8000"
     volumes:

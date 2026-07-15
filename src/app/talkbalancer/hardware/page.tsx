@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   ArrowLeft,
   ArrowRight,
@@ -15,6 +16,8 @@ import {
   KIT_TIERS,
   MIC_CANDIDATES,
 } from '@/lib/talkbalancer-guides';
+
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
 const recommendationStyle: Record<string, string> = {
   標準候補: 'border-primary/50 bg-primary/10 text-primary',
@@ -50,6 +53,50 @@ export default function HardwareGuidePage() {
             </Link>
           </div>
         </header>
+
+        <section className="rounded-xl border border-primary/30 bg-surface p-5">
+          <div className="mb-4 space-y-2">
+            <h2 className="text-xl font-semibold">専用マイクなしでも、話者識別まで使えます</h2>
+            <p className="text-sm leading-relaxed text-text-muted">
+              スマートフォンまたはPCの内蔵マイクで始められます。モードCのAI処理はスマートフォン単体ではなく、
+              同じネットワーク上のローカルPCで行います。外付け会議用マイクは必須ではありませんが、離れた席の声を
+              拾いやすくなり、話者判定と音量測定が安定します。
+            </p>
+          </div>
+          <Image
+            src={`${basePath}/manual/talkbalancer-v0.4/09-local-ai-architecture.png`}
+            alt="内蔵マイクの短い音声をローカルPCへ送り、録音保存やクラウド送信をせずに話者識別と文字起こしを行う構成図"
+            width={1664}
+            height={935}
+            unoptimized
+            className="h-auto w-full rounded-xl border border-white/10"
+            priority
+          />
+        </section>
+
+        <section className="rounded-xl border border-secondary/30 bg-surface p-5">
+          <div className="mb-4 space-y-2">
+            <h2 className="text-xl font-semibold">話者識別と音源分離は別の機能です</h2>
+            <p className="text-sm leading-relaxed text-text-muted">
+              約3秒ごとに声の特徴を比較し、「話者1」「話者2」のように順番を識別できます。事前の声登録は不要です。
+              一方、同時に重なった二人の声を別々の音声へ分解する音源分離には対応していません。重なった発話や大きな店内音では、
+              幹事画面で参加者名の対応と手動補正を行ってください。
+            </p>
+          </div>
+          <Image
+            src={`${basePath}/manual/talkbalancer-v0.4/10-speaker-identification-limits.png`}
+            alt="順番に話す場合の話者識別は可能だが、同時発話を別々の音声へ分離することはできないという比較図"
+            width={1664}
+            height={935}
+            unoptimized
+            className="h-auto w-full rounded-xl border border-white/10"
+          />
+          <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+            <p className="rounded-lg border border-success/30 bg-success/5 p-3"><span className="block font-semibold text-success">できる</span>順番に話す人を自動で切り替える</p>
+            <p className="rounded-lg border border-warning/30 bg-warning/5 p-3"><span className="block font-semibold text-warning">苦手</span>騒音の中や複数人が重なった発話</p>
+            <p className="rounded-lg border border-error/30 bg-error/5 p-3"><span className="block font-semibold text-error">未対応</span>混ざった声を別々の音声へ分離する</p>
+          </div>
+        </section>
 
         <section className="rounded-xl border border-primary/30 bg-primary/5 p-5">
           <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold">

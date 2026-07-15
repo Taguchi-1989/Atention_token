@@ -12,6 +12,12 @@ import {
 } from '@/lib/talkbalancer-mic';
 import { fetchTbSession, SessionMode } from '@/lib/talkbalancer';
 import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
+import { TalkBalancerSetupSteps } from '@/components/talkbalancer/TalkBalancerSetupSteps';
+import {
+  clearTalkBalancerRuntime,
+  createTalkBalancerRuntimeSourceId,
+  publishTalkBalancerRuntime,
+} from '@/lib/talkbalancer-live-status';
 
 // F-03 マイク入力：外部／内蔵の識別・相対入力レベル表示・接続切断検知
 interface MicDevice {
@@ -33,8 +39,13 @@ export default function MicCheckPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
   const rafRef = useRef<number>(0);
+  const runtimeHeartbeat = useRef<ReturnType<typeof setInterval> | null>(null);
+  const runtimeSourceId = useRef(createTalkBalancerRuntimeSourceId());
 
   const stop = useCallback(() => {
+    if (runtimeHeartbeat.current) clearInterval(runtimeHeartbeat.current);
+    runtimeHeartbeat.current = null;
+    clearTalkBalancerRuntime(runtimeSourceId.current);
     cancelAnimationFrame(rafRef.current);
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
@@ -102,6 +113,10 @@ export default function MicCheckPage() {
       };
       tick();
       setStatus('listening');
+      publishTalkBalancerRuntime(runtimeSourceId.current, preference.label);
+      runtimeHeartbeat.current = setInterval(() => {
+        publishTalkBalancerRuntime(runtimeSourceId.current, preference.label);
+      }, 2_000);
 
       track.addEventListener('ended', () => {
         // 接続切断検知（F-03）
@@ -144,6 +159,7 @@ export default function MicCheckPage() {
         </Link>
 
         <h1 className="text-2xl font-bold">マイク接続確認</h1>
+        <TalkBalancerSetupSteps current={3} />
         <p className="text-sm text-text-muted">
           外部マイクまたはPC内蔵マイクで入力テストを行います。音声はこの画面でのレベル表示のみに使われ、録音・保存はされません。
         </p>

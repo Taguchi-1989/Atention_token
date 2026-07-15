@@ -16,8 +16,10 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Install Python dependencies
-COPY python/requirements.txt python/requirements.lock ./
+COPY python/requirements.txt python/requirements.lock python/requirements-audio-ai.txt ./
 RUN pip install --no-cache-dir -r requirements.lock
+ARG INSTALL_AUDIO_AI=false
+RUN if [ "$INSTALL_AUDIO_AI" = "true" ]; then pip install --no-cache-dir -r requirements-audio-ai.txt; fi
 
 # Copy Python source
 COPY python/ ./python/
@@ -30,6 +32,7 @@ ENV PYTHONPATH=/app/python
 ENV ATTENTION_LEDGER_STATIC_DIR=/app/out
 ENV ATTENTION_LEDGER_TASKS_DIR=/app/python/tasks
 ENV ATTENTION_LEDGER_DB_PATH=/app/data/ledger.db
+ENV PYANNOTE_METRICS_ENABLED=0
 
 # Ensure data directory exists
 RUN mkdir -p /app/data

@@ -1,7 +1,7 @@
 import { ShieldCheck } from 'lucide-react';
 import { SessionMode, TbPrivacy, TB_MODE_LABELS, derivePrivacy } from '@/lib/talkbalancer';
 
-// 10.1 プライバシー: 録音保存 / 文字起こし / クラウド送信 の3行と現在の解析モードを
+// 10.1 プライバシー: 録音保存 / ローカル音声解析 / クラウド送信と現在の解析モードを
 // 常時表示するための共有コンポーネント。全 TalkBalancer 画面のフッター等に常設する。
 interface PrivacyBarProps {
   // 現在の解析モード。null/undefined はセッション未開始（既定=全OFF・「未開始」表示）。
@@ -28,7 +28,8 @@ export function PrivacyBar({ mode, privacy, variant = 'footer', className = '' }
       <div className={`rounded-xl border border-border bg-surface p-4 text-sm space-y-1 ${className}`}>
         <p className="font-semibold mb-2">プライバシー設定（常時画面に表示されます）</p>
         <p>録音保存：<Value on={p.recording} /></p>
-        <p>文字起こし：<Value on={p.transcription} /></p>
+        <p>ローカル文字起こし：<Value on={p.transcription} /></p>
+        <p>PCへの一時音声送信：<Value on={p.localAudioProcessing} /></p>
         <p>クラウド送信：<Value on={p.cloudUpload} /></p>
         <p>解析モード：<span className="font-mono">{modeLabel}</span></p>
         <p className="text-text-muted pt-2">終了時にすべてのデータを削除できます。</p>
@@ -40,7 +41,8 @@ export function PrivacyBar({ mode, privacy, variant = 'footer', className = '' }
     <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-text-muted ${className}`}>
       <ShieldCheck size={14} className="text-success shrink-0" />
       <span>録音保存：<Value on={p.recording} /></span>
-      <span>文字起こし：<Value on={p.transcription} /></span>
+      <span>ローカル文字起こし：<Value on={p.transcription} /></span>
+      <span>PC一時処理：<Value on={p.localAudioProcessing} /></span>
       <span>クラウド送信：<Value on={p.cloudUpload} /></span>
       <span>解析モード：<span className="font-mono">{modeLabel}</span></span>
     </div>

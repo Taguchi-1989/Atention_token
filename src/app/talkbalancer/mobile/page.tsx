@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
+  FileText,
   Gauge,
   Maximize2,
   Mic,
@@ -44,6 +45,25 @@ const STATS_POLL_MS = 5000;
 const ALERT_SHOW_MS = 25000;
 const PRESENTATION_HIDE_MS = 5000;
 
+function transcriptionStateLabel(state?: string): string {
+  return ({
+    off: '停止中',
+    starting: 'モデル準備中',
+    listening: '文字起こし中',
+    processing: '音声を処理中',
+    unavailable: 'モデル未導入',
+    error: '確認が必要',
+  } as Record<string, string>)[state ?? 'off'] ?? '停止中';
+}
+
+function publicBalanceMessage(stats: TbSpeakerStats | null): string {
+  if (!stats || stats.totalSeconds === 0) return '発話記録はまだありません';
+  const maximum = Math.max(...stats.total.map((person) => person.share));
+  return maximum >= 0.55
+    ? '少し一人に話が集まっています。別の人にも話を振ってみましょう。'
+    : 'いまのところ、会話はおおむねバランスよく進んでいます。';
+}
+
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
@@ -74,9 +94,11 @@ export default function MobileOneDevicePage() {
     analysis,
     error: micError,
     measuring,
+    measuringElsewhere,
+    transcription,
     start: startMeasure,
     stop: stopMeasure,
-  } = useTalkBalancerNoiseMeter();
+  } = useTalkBalancerNoiseMeter({ transcriptionEnabled: session?.mode === 'transcript' });
 
   useEffect(() => {
     const onInstall = (event: Event) => {
@@ -282,6 +304,11 @@ export default function MobileOneDevicePage() {
               </div>
             ))}
           </div>
+          <div className="rounded-xl border border-secondary/30 bg-secondary/5 p-4 text-sm leading-relaxed text-text-muted">
+            <p><span className="font-semibold text-white">スマホだけ：</span>音量・通知・手動バランス</p>
+            <p className="mt-1"><span className="font-semibold text-white">PCも併用：</span>ローカル文字起こし・話者識別</p>
+            <p className="mt-1 text-xs">外付けマイクはどちらも必須ではありません。</p>
+          </div>
           <button onClick={beginOneDeviceFlow} className="w-full rounded-xl bg-gradient-to-r from-primary to-secondary px-5 py-4 font-semibold text-black">
             携帯1台で開始する
           </button>
@@ -346,7 +373,9 @@ export default function MobileOneDevicePage() {
           </section>
         ) : (
           <button onClick={startMeasure} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary/50 bg-primary/10 px-5 py-4 font-semibold text-primary">
-            <Mic size={18} /> 携帯のマイクで計測開始
+            <Mic size={18} /> {measuringElsewhere
+              ? '別画面で計測中・この携帯へ切替'
+              : session.mode === 'transcript' ? 'マイク計測＋文字起こし開始' : '携帯のマイクで計測開始'}
           </button>
         )}
 
@@ -359,12 +388,28 @@ export default function MobileOneDevicePage() {
         )}
         {micError && <p className="rounded-lg border border-error/40 bg-error/10 p-3 text-sm text-error">{micError}</p>}
 
+        {session.mode === 'transcript' && (
+          <section className="rounded-xl border border-secondary/30 bg-secondary/5 p-3 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span className="inline-flex items-center gap-2 font-semibold"><FileText size={15} className="text-secondary" />文字起こし</span>
+              <span className="text-xs text-text-muted">{transcriptionStateLabel(transcription?.state)}</span>
+            </div>
+            <p className="mt-2 text-xs text-text-muted">
+              {transcription?.currentSpeakerKey ? '発話を検知中です。話者名と本文は幹事操作内だけに表示します。' : '録音保存せず、自宅PCのメモリ上で短い音声断片を処理します。'}
+            </p>
+          </section>
+        )}
+
         {balanceEnabled && speakerStats && speakerStats.participants.length > 0 && (
-          <TalkBalancerSpeakerPie title="話者バランス（全体）" data={speakerStats.total} totalSeconds={speakerStats.totalSeconds} />
+          <section className="rounded-xl border border-border bg-surface p-4 text-center">
+            <p className="text-xs font-semibold text-text-muted">会話バランス</p>
+            <p className="mt-2 text-sm leading-relaxed">{publicBalanceMessage(speakerStats)}</p>
+            <p className="mt-2 text-[10px] text-text-muted">個人名と割合は幹事操作の中だけに表示します。</p>
+          </section>
         )}
 
         <div className="flex justify-between text-xs text-text-muted">
-          <span>録音保存 OFF ／ クラウド送信 OFF</span>
+          <span>録音保存 OFF ／ クラウド送信 OFF{session.mode === 'transcript' ? ' ／ PC一時処理 ON' : ''}</span>
           <Link href="/talkbalancer/report" className="inline-flex items-center gap-1 hover:text-white"><Activity size={13} /> レポート</Link>
         </div>
       </div>
@@ -377,8 +422,26 @@ export default function MobileOneDevicePage() {
               <button onClick={() => setControlsOpen(false)} className="rounded-lg border border-border p-2"><ChevronDown size={18} /></button>
             </div>
 
+            {session.mode === 'transcript' && (
+              <section className="mb-5 rounded-xl border border-secondary/30 bg-background p-3">
+                <p className="inline-flex items-center gap-2 text-sm font-semibold"><FileText size={16} className="text-secondary" />自動文字起こし</p>
+                <p className="mt-2 text-sm">
+                  現在：<span className="font-semibold text-secondary">{transcription?.currentSpeakerName ?? '発話待ち'}</span>
+                  {transcription?.currentSpeakerKey && !transcription.currentParticipantId && '（未対応）'}
+                </p>
+                <p className="mt-1 text-xs text-text-muted">{transcriptionStateLabel(transcription?.state)} ／ 音声保存なし</p>
+                {transcription?.currentSpeakerKey && <p className="mt-1 text-[11px] text-text-muted">約3秒ごとに自動切替 ／ 推定確信度 {Math.round(transcription.currentSpeakerConfidence * 100)}%</p>}
+                {transcription?.latestText && <p className="mt-3 rounded-lg bg-surface px-3 py-2 text-sm leading-relaxed">{transcription.latestText}</p>}
+                {transcription?.error && <p className="mt-2 text-xs text-warning">{transcription.error}</p>}
+                {transcription?.clusters.some((cluster) => !cluster.participantId) && (
+                  <p className="mt-2 text-xs text-text-muted">未対応の「話者1」などは、幹事リモコンで参加者名に一度対応づけると以後自動で切り替わります。</p>
+                )}
+              </section>
+            )}
+
             {balanceEnabled && speakerStats && speakerStats.participants.length > 0 && (
               <section className="mb-5 space-y-3">
+                <TalkBalancerSpeakerPie title="話者バランス（幹事のみ）" data={speakerStats.total} totalSeconds={speakerStats.totalSeconds} />
                 <div className="flex items-center justify-between gap-2">
                   <p className="inline-flex items-center gap-2 text-sm font-semibold"><Users size={16} className="text-primary" /> いま話していた人</p>
                   <select value={durationSec} onChange={(event) => setDurationSec(Number(event.target.value))} className="rounded-lg border border-border bg-background px-2 py-2 text-xs">

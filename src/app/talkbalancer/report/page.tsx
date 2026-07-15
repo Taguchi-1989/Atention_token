@@ -17,7 +17,7 @@ import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
 const MODE_LABELS: Record<string, string> = {
   volume_only: 'モードA：音量のみ',
   balance: 'モードB：音量＋発話バランス',
-  transcript: 'モードC：文字起こしあり',
+  transcript: 'モードC：ローカル文字起こし＋自動話者',
 };
 
 const ALERT_LABELS = REMOTE_BUTTONS.reduce((acc, item) => {
@@ -197,7 +197,7 @@ export default function TalkBalancerReportPage() {
       {report.session.mode === 'transcript' && (
         <section className="rounded-xl border border-border bg-surface p-5">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-            <FileText size={18} className="text-primary" /> 文字起こしメモ
+            <FileText size={18} className="text-primary" /> 文字起こし・補正メモ
           </h2>
           {report.transcriptNotes && report.transcriptNotes.length > 0 ? (
             <div className="space-y-3">
@@ -212,7 +212,7 @@ export default function TalkBalancerReportPage() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-text-muted">まだ文字起こしメモはありません。</p>
+            <p className="text-sm text-text-muted">まだ文字メモはありません。</p>
           )}
         </section>
       )}

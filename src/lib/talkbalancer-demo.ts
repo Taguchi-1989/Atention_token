@@ -381,6 +381,7 @@ export function getReport(): TbReport {
     privacy: {
       recording: false,
       transcription: s.session.mode === 'transcript',
+      localAudioProcessing: false,
       cloudUpload: false,
       savePolicy: 'none',
     },

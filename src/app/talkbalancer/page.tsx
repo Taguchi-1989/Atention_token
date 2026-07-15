@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Wine,
   Megaphone,
@@ -14,17 +15,23 @@ import {
   ClipboardList,
   PackageCheck,
   Smartphone,
+  ArrowRight,
+  CheckCircle2,
+  ChevronDown,
+  Laptop,
 } from 'lucide-react';
 import { fetchTbSession, endTbSession, isDemoMode, SessionState } from '@/lib/talkbalancer';
 import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
+import { TalkBalancerSetupSteps } from '@/components/talkbalancer/TalkBalancerSetupSteps';
 
 const MODE_LABELS: Record<string, string> = {
   volume_only: 'モードA：音量のみ',
   balance: 'モードB：音量＋発話バランス',
-  transcript: 'モードC：文字起こしあり',
+  transcript: 'モードC：ローカル文字起こし＋自動話者',
 };
 
 export default function TalkBalancerHome() {
+  const router = useRouter();
   const [state, setState] = useState<SessionState | null>(null);
   const [apiError, setApiError] = useState(false);
   const [demo, setDemo] = useState(false);
@@ -41,6 +48,12 @@ export default function TalkBalancerHome() {
     if (!window.confirm('セッションを終了し、データを削除しますか？')) return;
     await endTbSession();
     load();
+  };
+
+  const beginSetup = (target: 'mobile' | 'table') => {
+    window.localStorage.setItem('talkbalancer.startTarget', target);
+    window.localStorage.setItem('talkbalancer.startTargetAt', String(Date.now()));
+    router.push('/talkbalancer/declaration');
   };
 
   return (
@@ -76,54 +89,99 @@ export default function TalkBalancerHome() {
           </div>
         )}
 
-        <div className="rounded-xl border border-border bg-surface p-4 text-sm">
-          {state?.active && state.session ? (
-            <div className="flex items-center justify-between gap-3">
+        {state?.active && state.session ? (
+          <section className="space-y-4 rounded-2xl border border-success/40 bg-success/5 p-5">
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-semibold">{state.session.title}（開催中）</p>
-                <p className="text-text-muted">{MODE_LABELS[state.session.mode]}</p>
+                <p className="text-xs font-semibold tracking-widest text-success">開催中</p>
+                <h2 className="mt-1 text-xl font-bold">{state.session.title}</h2>
+                <p className="mt-1 text-sm text-text-muted">{MODE_LABELS[state.session.mode]}</p>
               </div>
-              <button
-                onClick={handleEnd}
-                className="inline-flex items-center gap-1 rounded-lg border border-error/40 px-3 py-2 text-error hover:bg-error/10"
-              >
-                <Trash2 size={16} /> 終了して削除
-              </button>
+              <span className="mt-1 h-3 w-3 animate-pulse rounded-full bg-success" aria-label="セッション稼働中" />
             </div>
-          ) : (
-            <p className="text-text-muted">セッションは開始されていません。開始前宣言から始めてください。</p>
-          )}
-          <PrivacyBar mode={state?.session?.mode ?? null} className="mt-3" />
-        </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <PrimaryLink href="/talkbalancer/mobile" icon={<Smartphone size={19} />} title="この端末で進行する" />
+              <PrimaryLink href="/talkbalancer/table" icon={<MonitorSpeaker size={19} />} title="テーブル画面を開く" />
+            </div>
+            <Link href="/talkbalancer/remote" className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline">
+              <Megaphone size={16} /> 幹事リモコンを開く <ArrowRight size={14} />
+            </Link>
+            <PrivacyBar mode={state.session.mode} />
+            <button onClick={handleEnd} className="inline-flex items-center gap-1 text-xs text-error hover:underline">
+              <Trash2 size={14} /> 終了してデータを削除
+            </button>
+          </section>
+        ) : (
+          <>
+            <section className="space-y-5 rounded-2xl border border-primary/40 bg-gradient-to-b from-primary/10 to-surface p-5 shadow-glow">
+              <div>
+                <p className="text-xs font-semibold tracking-widest text-primary">初めての方はここから</p>
+                <h2 className="mt-2 text-2xl font-bold">使い方を1つ選ぶだけ</h2>
+                <p className="mt-2 text-sm leading-relaxed text-text-muted">どちらも、ルール共有 → モード選択 → マイク開始の3段階です。</p>
+              </div>
 
-        <nav className="grid gap-3">
-          <MenuLink href="/talkbalancer/mobile" icon={<Smartphone size={22} />}
-            title="携帯1台モード（PWA）" desc="Android携帯をテーブルに置き、内蔵マイク・表示・幹事操作を1画面で使います" />
-          <MenuLink href="/talkbalancer/party" icon={<ClipboardList size={22} />}
-            title="飲み会運用ガイド" desc="乾杯前から終了までの使い方を確認します" />
-          <MenuLink href="/talkbalancer/hardware" icon={<PackageCheck size={22} />}
-            title="機器選定ガイド" desc="外部マイクと、機材なしで使うPC内蔵マイク簡易モードを確認します" />
-          <MenuLink href="/talkbalancer/declaration" icon={<ScrollText size={22} />}
-            title="開始前宣言" desc="飲み会を始める前に、場のルールを宣言します" />
-          <MenuLink href="/talkbalancer/table" icon={<MonitorSpeaker size={22} />}
-            title="テーブル表示モード" desc="テーブル中央に置く画面。アラートを表示します" />
-          <MenuLink href="/talkbalancer/remote" icon={<Megaphone size={22} />}
-            title="幹事リモコン" desc="幹事のスマホから丁重アラートを送ります" />
-          <MenuLink href="/talkbalancer/mic" icon={<Mic size={22} />}
-            title="マイク接続確認" desc="外部／PC内蔵マイクの認識と相対音量の数値を確認します" />
-          <MenuLink href="/talkbalancer/report" icon={<BarChart3 size={22} />}
-            title="終了レポート" desc="アラート内訳と騒音メーターの状態を確認します" />
-        </nav>
+              <TalkBalancerSetupSteps />
+
+              <div className="grid gap-3">
+                <button onClick={() => beginSetup('mobile')} className="group rounded-xl border border-primary/50 bg-primary/10 p-4 text-left hover:bg-primary/15">
+                  <span className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-3">
+                      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-black"><Smartphone size={23} /></span>
+                      <span><span className="block font-bold">スマホ1台で始める</span><span className="mt-1 block text-xs text-text-muted">音量・通知ならスマホだけで利用可能</span></span>
+                    </span>
+                    <ArrowRight size={20} className="text-primary transition-transform group-hover:translate-x-1" />
+                  </span>
+                </button>
+                <button onClick={() => beginSetup('table')} className="group rounded-xl border border-secondary/40 bg-secondary/5 p-4 text-left hover:bg-secondary/10">
+                  <span className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-3">
+                      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-secondary text-white"><Laptop size={23} /></span>
+                      <span><span className="block font-bold">PC・複数画面で始める</span><span className="mt-1 block text-xs text-text-muted">文字起こし・話者識別はこちら</span></span>
+                    </span>
+                    <ArrowRight size={20} className="text-secondary transition-transform group-hover:translate-x-1" />
+                  </span>
+                </button>
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-border bg-surface p-4">
+              <h2 className="text-sm font-semibold">始める前に知るのは、この3点だけ</h2>
+              <ul className="mt-3 space-y-2 text-sm text-text-muted">
+                <li className="flex gap-2"><CheckCircle2 size={16} className="mt-0.5 shrink-0 text-success" /><span>外付けマイクは不要。スマホまたはPCの内蔵マイクで開始できます。</span></li>
+                <li className="flex gap-2"><CheckCircle2 size={16} className="mt-0.5 shrink-0 text-success" /><span>文字起こし・話者識別を使うモードCだけ、ローカルPCが必要です。</span></li>
+                <li className="flex gap-2"><CheckCircle2 size={16} className="mt-0.5 shrink-0 text-success" /><span>録音保存とクラウド音声送信は常にOFFです。</span></li>
+              </ul>
+            </section>
+          </>
+        )}
+
+        <details className="group rounded-xl border border-border bg-surface">
+          <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-sm font-semibold">
+            ガイド・設定・レポート
+            <ChevronDown size={17} className="text-text-muted transition-transform group-open:rotate-180" />
+          </summary>
+          <nav className="grid gap-2 border-t border-border p-3">
+            <MenuLink href="/talkbalancer/party" icon={<ClipboardList size={19} />} title="飲み会運用ガイド" desc="当日の流れを確認" />
+            <MenuLink href="/talkbalancer/hardware" icon={<PackageCheck size={19} />} title="機器・話者識別ガイド" desc="必要機材と精度を図で確認" />
+            <MenuLink href="/talkbalancer/mic" icon={<Mic size={19} />} title="マイク接続確認" desc="入力デバイスをテスト" />
+            <MenuLink href="/talkbalancer/declaration" icon={<ScrollText size={19} />} title="開始前宣言だけ開く" desc="参加者へルールを共有" />
+            <MenuLink href="/talkbalancer/report" icon={<BarChart3 size={19} />} title="終了レポート" desc="開催中の状態を確認" />
+          </nav>
+        </details>
       </div>
     </div>
   );
+}
+
+function PrimaryLink({ href, icon, title }: { href: string; icon: React.ReactNode; title: string }) {
+  return <Link href={href} className="inline-flex items-center justify-center gap-2 rounded-xl bg-success px-4 py-3 text-sm font-semibold text-black hover:opacity-90">{icon}{title}</Link>;
 }
 
 function MenuLink({ href, icon, title, desc }: { href: string; icon: React.ReactNode; title: string; desc: string }) {
   return (
     <Link
       href={href}
-      className="flex items-center gap-4 rounded-xl border border-border bg-surface p-4 hover:border-primary/50 hover:bg-surface-highlight transition-colors"
+      className="flex items-center gap-3 rounded-lg border border-border bg-background/40 p-3 hover:border-primary/50 hover:bg-surface-highlight transition-colors"
     >
       <span className="text-primary">{icon}</span>
       <span>

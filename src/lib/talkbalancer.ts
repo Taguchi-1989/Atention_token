@@ -82,6 +82,7 @@ export interface TbReport {
   privacy?: {
     recording: boolean;
     transcription: boolean;
+    localAudioProcessing: boolean;
     cloudUpload: boolean;
     savePolicy: 'none';
   };
@@ -124,6 +125,38 @@ export interface TbTranscriptNote {
   source: 'manual' | 'auto';
 }
 
+export type TbTranscriptionState = 'off' | 'starting' | 'listening' | 'processing' | 'unavailable' | 'error';
+
+export interface TbAutoSpeakerCluster {
+  key: string;
+  sampleCount: number;
+  participantId: string | null;
+  name: string | null;
+}
+
+export interface TbTranscriptionStatus {
+  active: boolean;
+  state: TbTranscriptionState;
+  sourceId: string | null;
+  engineAvailable: boolean;
+  engine: string | null;
+  model: string;
+  speakerEngine: 'pyannote' | 'acoustic';
+  speakerEngineError?: string | null;
+  currentSpeakerKey: string | null;
+  currentParticipantId: string | null;
+  currentSpeakerName: string | null;
+  currentSpeakerConfidence: number;
+  latestText: string;
+  updatedAt: string;
+  audioRetention: 'memory-only';
+  cloudUpload: false;
+  clusters: TbAutoSpeakerCluster[];
+  error?: string | null;
+  confidence?: number;
+  language?: string;
+}
+
 export const NOISE_LABELS: Record<NoiseCategory, string> = {
   quiet: '低め',
   normal: '普通',
@@ -135,23 +168,25 @@ export const NOISE_LABELS: Record<NoiseCategory, string> = {
 export const TB_MODE_LABELS: Record<SessionMode, string> = {
   volume_only: 'モードA：音量のみ',
   balance: 'モードB：音量＋発話バランス',
-  transcript: 'モードC：文字起こしあり',
+  transcript: 'モードC：ローカル文字起こし＋自動話者',
 };
 
 export interface TbPrivacy {
   recording: boolean;
   transcription: boolean;
+  localAudioProcessing: boolean;
   cloudUpload: boolean;
 }
 
 // 解析モードからプライバシー状態を導出する（10.1 常時表示用）。
 // backend の _privacy_for_mode と同一マッピングにすること：
-// transcript のみ文字起こしメモが ON。録音保存とクラウド送信は常に OFF。
+// transcript のみローカル文字起こしとPC一時処理が ON。録音保存とクラウド送信は常に OFF。
 export function derivePrivacy(mode: SessionMode | null | undefined): TbPrivacy {
   const isTranscript = mode === 'transcript';
   return {
     recording: false,
     transcription: isTranscript,
+    localAudioProcessing: isTranscript,
     cloudUpload: false,
   };
 }
@@ -339,6 +374,44 @@ export async function createTbTranscriptNote(
   return res.json();
 }
 
+const TRANSCRIPTION_OFF: TbTranscriptionStatus = {
+  active: false,
+  state: 'unavailable',
+  sourceId: null,
+  engineAvailable: false,
+  engine: null,
+  model: 'local-server-required',
+  speakerEngine: 'acoustic',
+  currentSpeakerKey: null,
+  currentParticipantId: null,
+  currentSpeakerName: null,
+  currentSpeakerConfidence: 0,
+  latestText: '',
+  updatedAt: new Date(0).toISOString(),
+  audioRetention: 'memory-only',
+  cloudUpload: false,
+  clusters: [],
+  error: '公開PWAではローカル文字起こしを利用できません',
+};
+
+export async function fetchTbTranscriptionStatus(): Promise<TbTranscriptionStatus> {
+  const res = await tbFetch('/transcription/status', { cache: 'no-store' });
+  if (!res) return TRANSCRIPTION_OFF;
+  if (!res.ok) throw new Error('Failed to fetch transcription status');
+  return res.json();
+}
+
+export async function mapTbAutoSpeaker(speakerKey: string, participantId: string): Promise<TbTranscriptionStatus> {
+  const res = await tbFetch(`/transcription/speakers/${encodeURIComponent(speakerKey)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ participantId }),
+  });
+  if (!res) throw new Error('ローカルサーバー接続時のみ話者を対応づけできます');
+  if (!res.ok) throw new Error('Failed to map automatic speaker');
+  return res.json();
+}
+
 // デモモード時にテーブル端末内で解析する（音声波形は端末から出ない）
 export function ingestDemoMetric(rms: number): TbAnalysis {
   return demo.ingestLocalMetric(rms);
@@ -351,6 +424,15 @@ export function tbMetricsWsUrl(): string {
   }
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${proto}//${window.location.host}${API_BASE_URL}/talkbalancer/ws/metrics`;
+}
+
+// Mode C: 16kHz PCMを自宅PCへ一時送信する専用WebSocket。音声ファイルは作らない。
+export function tbTranscriptionWsUrl(): string {
+  if (API_BASE_URL.startsWith('http')) {
+    return `${API_BASE_URL.replace(/^http/, 'ws')}/talkbalancer/ws/transcription`;
+  }
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${window.location.host}${API_BASE_URL}/talkbalancer/ws/transcription`;
 }
 
 // F-05 幹事リモコンのボタン定義

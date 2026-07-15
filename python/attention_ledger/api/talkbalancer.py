@@ -7,6 +7,8 @@
 1サーバー = 1テーブル（1セッション）の前提。
 """
 
+import asyncio
+import json
 import math
 import threading
 import time
@@ -17,6 +19,8 @@ from typing import List, Literal, Optional
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field, ValidationError
+
+from attention_ledger.api.local_audio_ai import LocalAudioAI
 
 router = APIRouter(prefix="/talkbalancer", tags=["talkbalancer"])
 
@@ -137,6 +141,10 @@ class TranscriptNote(BaseModel):
     source: Literal["manual", "auto"]
 
 
+class SpeakerMappingUpdate(BaseModel):
+    participantId: str
+
+
 # ── メモリ内状態（録音・永続化なし） ──
 
 _MAX_ALERTS = 50
@@ -152,6 +160,16 @@ _alerts: deque = deque(maxlen=_MAX_ALERTS)
 _participants: List[Participant] = []
 _speaker_events: deque = deque(maxlen=_MAX_SPEAKER_EVENTS)
 _transcript_notes: deque = deque(maxlen=200)
+_audio_ai = LocalAudioAI()
+_speaker_mapping: dict[str, str] = {}
+_transcription_source_id: Optional[str] = None
+_transcription_state: Literal["off", "starting", "listening", "processing", "unavailable", "error"] = "off"
+_transcription_error: Optional[str] = None
+_transcription_updated_at: float = 0.0
+_current_speaker_key: Optional[str] = None
+_current_speaker_confidence: float = 0.0
+_current_speaker_at: float = 0.0
+_latest_transcript_text: str = ""
 _seq = 0
 
 
@@ -189,6 +207,69 @@ def _participant_name_by_id(participant_id: Optional[str]) -> Optional[str]:
         if participant.id == participant_id:
             return participant.name
     return None
+
+
+def _reset_transcription_locked() -> None:
+    global _transcription_source_id, _transcription_state, _transcription_error
+    global _transcription_updated_at, _current_speaker_key, _current_speaker_confidence
+    global _current_speaker_at, _latest_transcript_text
+    _audio_ai.reset()
+    _speaker_mapping.clear()
+    _transcription_source_id = None
+    _transcription_state = "off"
+    _transcription_error = None
+    _transcription_updated_at = time.time()
+    _current_speaker_key = None
+    _current_speaker_confidence = 0.0
+    _current_speaker_at = 0.0
+    _latest_transcript_text = ""
+
+
+def _speaker_display_locked(speaker_key: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    if speaker_key is None:
+        return None, None
+    participant_id = _speaker_mapping.get(speaker_key)
+    participant_name = _participant_name_by_id(participant_id)
+    if participant_name:
+        return participant_id, participant_name
+    try:
+        number = int(speaker_key.rsplit("_", 1)[-1])
+    except ValueError:
+        number = len(_speaker_mapping) + 1
+    return None, f"話者{number}"
+
+
+def _transcription_status_locked(now: Optional[float] = None) -> dict:
+    current_now = now if now is not None else time.time()
+    speaker_key = _current_speaker_key if current_now - _current_speaker_at <= 5.0 else None
+    participant_id, speaker_name = _speaker_display_locked(speaker_key)
+    clusters = []
+    for cluster in _audio_ai.clusters():
+        mapped_id, mapped_name = _speaker_display_locked(cluster["key"])
+        clusters.append({
+            **cluster,
+            "participantId": mapped_id,
+            "name": mapped_name,
+        })
+    return {
+        "active": _transcription_source_id is not None,
+        "state": _transcription_state,
+        "sourceId": _transcription_source_id,
+        "engineAvailable": _audio_ai.transcription_available,
+        "engine": "faster-whisper" if _audio_ai.transcription_available else None,
+        "model": _audio_ai.transcription_model,
+        "speakerEngine": _audio_ai.speaker_engine,
+        "speakerEngineError": _audio_ai.speaker_error,
+        "currentSpeakerKey": speaker_key,
+        "currentParticipantId": participant_id,
+        "currentSpeakerName": speaker_name,
+        "currentSpeakerConfidence": _current_speaker_confidence if speaker_key else 0.0,
+        "latestText": _latest_transcript_text,
+        "updatedAt": datetime.fromtimestamp(_transcription_updated_at or current_now, timezone.utc).isoformat(),
+        "audioRetention": "memory-only",
+        "cloudUpload": False,
+        "clusters": clusters,
+    }
 
 
 def _speaker_stats_locked(now: float) -> dict:
@@ -254,13 +335,14 @@ def _privacy_for_mode(mode: SessionMode) -> dict:
     """解析モードからプライバシー状態を導出する（10.1 常時表示用）。
 
     フロント derivePrivacy（src/lib/talkbalancer.ts）と同一マッピングにすること：
-    transcript のみ文字起こしメモが True。音声の録音保存とクラウド送信は
-    どのモードでも行わない。
+    transcript のみローカル文字起こしが True。音声はメモリ上の短い断片として
+    Local Serverへ送るが、録音保存とクラウド送信はどのモードでも行わない。
     """
     is_transcript = mode == "transcript"
     return {
         "recording": False,
         "transcription": is_transcript,
+        "localAudioProcessing": is_transcript,
         "cloudUpload": False,
         "savePolicy": "none",
     }
@@ -289,6 +371,7 @@ def start_session(body: SessionCreate):
         _transcript_notes.clear()
         _seq = 0
         _reset_metrics_locked()
+        _reset_transcription_locked()
         return {"active": True, "session": _session, "seq": _seq, "participants": _participants}
 
 
@@ -304,6 +387,7 @@ def end_session():
         _transcript_notes.clear()
         _seq = 0
         _reset_metrics_locked()
+        _reset_transcription_locked()
         return {"active": False, "deleted": True}
 
 
@@ -372,7 +456,7 @@ def get_speaker_stats():
 
 @router.get("/transcript-notes")
 def get_transcript_notes():
-    """モードC用の文字起こし/要点メモ。録音保存はせず、メモリ内のみ保持する。"""
+    """モードC用の自動文字起こし/手動補正メモ。録音保存はせず、メモリ内のみ保持する。"""
     with _lock:
         if _session is None:
             return {"active": False, "enabled": False, "notes": []}
@@ -385,7 +469,7 @@ def get_transcript_notes():
 
 @router.post("/transcript-notes", status_code=201)
 def post_transcript_note(body: TranscriptNoteCreate):
-    """モードCでのみ、幹事が文字起こしメモを追加できる。"""
+    """モードCでのみ、幹事が文字起こしへの補正メモを追加できる。"""
     with _lock:
         if _session is None:
             raise HTTPException(status_code=409, detail="セッションが開始されていません")
@@ -645,3 +729,233 @@ async def ws_metrics(ws: WebSocket):
             await ws.send_json(analysis)
     except WebSocketDisconnect:
         pass
+
+
+# ════════════════════════════════════════════════════════
+# Mode C: Local Server文字起こし＋オンライン話者推定
+#
+# 端末から16kHz/mono/PCM16の短い断片を受け取る。音声ファイルは作らず、
+# 文字起こし・話者特徴の処理後にメモリから破棄する。
+# ════════════════════════════════════════════════════════
+
+_TRANSCRIPTION_CHUNK_SEC = 6
+_SPEAKER_CHUNK_SEC = 3
+
+
+@router.get("/transcription/status")
+def get_transcription_status():
+    with _lock:
+        return _transcription_status_locked()
+
+
+@router.put("/transcription/speakers/{speaker_key}")
+def map_transcription_speaker(speaker_key: str, body: SpeakerMappingUpdate):
+    with _lock:
+        if _session is None:
+            raise HTTPException(status_code=409, detail="セッションが開始されていません")
+        if not _participant_exists(body.participantId):
+            raise HTTPException(status_code=404, detail="参加者が見つかりません")
+        known = {cluster["key"] for cluster in _audio_ai.clusters()}
+        if speaker_key not in known:
+            raise HTTPException(status_code=404, detail="自動話者ラベルが見つかりません")
+        # 同じ参加者への再割当は許可し、以前の自動ラベルとの対応を置き換える。
+        for key, participant_id in list(_speaker_mapping.items()):
+            if participant_id == body.participantId and key != speaker_key:
+                del _speaker_mapping[key]
+        _speaker_mapping[speaker_key] = body.participantId
+        return _transcription_status_locked()
+
+
+async def _process_transcription_chunk(
+    ws: WebSocket,
+    send_lock: asyncio.Lock,
+    source_id: str,
+    pcm: bytes,
+    speaker_key: Optional[str],
+) -> None:
+    global _transcription_state, _transcription_error, _transcription_updated_at
+    global _latest_transcript_text
+
+    with _lock:
+        if _transcription_source_id != source_id or _session is None:
+            return
+        _transcription_state = "processing"
+        _transcription_error = None
+        _transcription_updated_at = time.time()
+        processing_status = _transcription_status_locked()
+    async with send_lock:
+        await ws.send_json({"type": "transcription_status", **processing_status})
+
+    try:
+        result = await asyncio.to_thread(_audio_ai.transcribe, pcm, 16000)
+    except Exception as exc:
+        with _lock:
+            if _transcription_source_id != source_id:
+                return
+            _transcription_state = "error"
+            _transcription_error = str(exc)[:300]
+            _transcription_updated_at = time.time()
+            error_status = _transcription_status_locked()
+            error_status["error"] = _transcription_error
+        async with send_lock:
+            await ws.send_json({"type": "transcription_status", **error_status})
+        return
+
+    with _lock:
+        if _transcription_source_id != source_id or _session is None:
+            return
+        if result.text:
+            participant_id, participant_name = _speaker_display_locked(speaker_key)
+            note = TranscriptNote(
+                id=uuid.uuid4().hex[:12],
+                sessionId=_session.id,
+                timestamp=_now_iso(),
+                text=result.text[:500],
+                participantId=participant_id,
+                participantName=participant_name,
+                source="auto",
+            )
+            _transcript_notes.append(note)
+            _latest_transcript_text = note.text
+        _transcription_state = "listening"
+        _transcription_error = None
+        _transcription_updated_at = time.time()
+        completed_status = _transcription_status_locked()
+        completed_status["confidence"] = result.confidence
+        completed_status["language"] = result.language
+    async with send_lock:
+        await ws.send_json({"type": "transcription_status", **completed_status})
+
+
+@router.websocket("/ws/transcription")
+async def ws_transcription(ws: WebSocket):
+    """16kHz mono PCM16をローカル処理する。音声は保存しない。"""
+    global _transcription_source_id, _transcription_state, _transcription_error
+    global _transcription_updated_at, _current_speaker_key
+    global _current_speaker_confidence, _current_speaker_at
+
+    await ws.accept()
+    source_id = uuid.uuid4().hex[:12]
+    send_lock = asyncio.Lock()
+    transcription_task: Optional[asyncio.Task] = None
+    speaker_buffer = bytearray()
+    transcription_buffer = bytearray()
+    sample_rate = 16000
+
+    with _lock:
+        if _session is None or _session.mode != "transcript":
+            await ws.send_json({"error": "モードCのセッションが開始されていません"})
+            await ws.close(code=4000)
+            return
+        _transcription_source_id = source_id
+        _transcription_state = "starting" if _audio_ai.transcription_available else "unavailable"
+        _transcription_error = None if _audio_ai.transcription_available else "ローカル文字起こしモデルが未導入です"
+        _transcription_updated_at = time.time()
+        initial_status = _transcription_status_locked()
+        if _transcription_error:
+            initial_status["error"] = _transcription_error
+    await ws.send_json({"type": "transcription_status", **initial_status})
+
+    try:
+        while True:
+            message = await ws.receive()
+            if message.get("type") == "websocket.disconnect":
+                raise WebSocketDisconnect()
+
+            text_message = message.get("text")
+            if text_message:
+                try:
+                    config = json.loads(text_message)
+                    requested_source = config.get("sourceId")
+                    if isinstance(requested_source, str) and requested_source:
+                        with _lock:
+                            if _transcription_source_id == source_id:
+                                _transcription_source_id = requested_source
+                                source_id = requested_source
+                    requested_rate = config.get("sampleRate")
+                    if requested_rate != 16000:
+                        async with send_lock:
+                            await ws.send_json({"error": "sampleRate must be 16000"})
+                    else:
+                        configured_status = None
+                        with _lock:
+                            if _transcription_source_id == source_id:
+                                _transcription_state = "listening" if _audio_ai.transcription_available else "unavailable"
+                                _transcription_updated_at = time.time()
+                                configured_status = _transcription_status_locked()
+                        if configured_status is not None:
+                            async with send_lock:
+                                await ws.send_json({"type": "transcription_status", **configured_status})
+                except (ValueError, TypeError):
+                    async with send_lock:
+                        await ws.send_json({"error": "invalid transcription config"})
+                continue
+
+            pcm = message.get("bytes")
+            if not pcm:
+                continue
+            speaker_buffer.extend(pcm)
+            transcription_buffer.extend(pcm)
+
+            speaker_bytes = sample_rate * 2 * _SPEAKER_CHUNK_SEC
+            if len(speaker_buffer) >= speaker_bytes:
+                speaker_pcm = bytes(speaker_buffer[:speaker_bytes])
+                del speaker_buffer[:speaker_bytes]
+                with _lock:
+                    participant_limit = max(1, len(_participants))
+                speaker = await asyncio.to_thread(
+                    _audio_ai.classify_speaker,
+                    speaker_pcm,
+                    sample_rate,
+                    participant_limit,
+                )
+                if speaker is not None:
+                    with _lock:
+                        if _transcription_source_id == source_id and _session is not None:
+                            _current_speaker_key = speaker.key
+                            _current_speaker_confidence = speaker.confidence
+                            _current_speaker_at = time.time()
+                            mapped_participant = _speaker_mapping.get(speaker.key)
+                            if mapped_participant and _participant_exists(mapped_participant):
+                                _record_speaker_event_locked(SpeakerEventCreate(
+                                    participantId=mapped_participant,
+                                    durationSec=_SPEAKER_CHUNK_SEC,
+                                    source="auto",
+                                ))
+                            speaker_status = _transcription_status_locked()
+                    async with send_lock:
+                        await ws.send_json({"type": "speaker_status", **speaker_status})
+
+            if transcription_task is not None and transcription_task.done():
+                try:
+                    await transcription_task
+                except (WebSocketDisconnect, RuntimeError):
+                    pass
+                transcription_task = None
+
+            transcription_bytes = sample_rate * 2 * _TRANSCRIPTION_CHUNK_SEC
+            if len(transcription_buffer) >= transcription_bytes and transcription_task is None:
+                transcription_pcm = bytes(transcription_buffer[:transcription_bytes])
+                del transcription_buffer[:transcription_bytes]
+                with _lock:
+                    speaker_key = _current_speaker_key
+                if _audio_ai.transcription_available:
+                    transcription_task = asyncio.create_task(_process_transcription_chunk(
+                        ws, send_lock, source_id, transcription_pcm, speaker_key,
+                    ))
+            elif len(transcription_buffer) > transcription_bytes * 2:
+                # 遅いPCでも生音声を長時間保持しない。最新12秒を上限にする。
+                del transcription_buffer[:-transcription_bytes * 2]
+    except WebSocketDisconnect:
+        pass
+    finally:
+        if transcription_task is not None and not transcription_task.done():
+            transcription_task.cancel()
+        speaker_buffer.clear()
+        transcription_buffer.clear()
+        with _lock:
+            if _transcription_source_id == source_id:
+                _transcription_source_id = None
+                _transcription_state = "off"
+                _transcription_error = None
+                _transcription_updated_at = time.time()
