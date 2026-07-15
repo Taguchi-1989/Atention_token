@@ -7,6 +7,8 @@
 1サーバー = 1テーブル（1セッション）の前提。
 """
 
+import asyncio
+import json
 import math
 import threading
 import time
@@ -18,16 +20,17 @@ from typing import List, Literal, Optional
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field, ValidationError
 
+from attention_ledger.api.local_audio_ai import LocalAudioAI
+
 router = APIRouter(prefix="/talkbalancer", tags=["talkbalancer"])
 
 # ── 型定義（要件 12. データモデル準拠。幹事リモコン F-05 の9ボタンに対応） ──
 
 SessionMode = Literal["volume_only", "balance", "transcript"]
 
-# 実装済みの解析モード。balance / transcript を実装したらここへ追加する。
-# 未実装モードは start_session で拒否し（UI 無効化だけに頼らない多層防御）、
-# プライバシー表示と実態が乖離しないようにする（10.1）。
-IMPLEMENTED_MODES: frozenset = frozenset({"volume_only"})
+# 実装済みの解析モード。balance は手動話者記録、transcript は保存しない
+# セッション内メモとして提供する。
+IMPLEMENTED_MODES: frozenset = frozenset({"volume_only", "balance", "transcript"})
 
 AlertType = Literal[
     "talk_too_much",     # 話しすぎ
@@ -63,6 +66,8 @@ _ALERT_SEVERITY: dict = {
 class SessionCreate(BaseModel):
     title: str = Field(default="飲み会", max_length=100)
     mode: SessionMode = "volume_only"
+    participantCount: int = Field(default=4, ge=1, le=20)
+    participantNames: List[str] = Field(default_factory=list, max_length=20)
     # F-01 開始前宣言に全員が合意した時刻(ISO8601, クライアント申告)。未指定可
     agreedAt: Optional[str] = Field(default=None, max_length=40)
 
@@ -91,18 +96,223 @@ class AlertEvent(BaseModel):
     severity: Literal["info", "notice", "strong"]
 
 
+class Participant(BaseModel):
+    id: str
+    name: str
+    color: str
+
+
+class ParticipantsUpdate(BaseModel):
+    names: List[str] = Field(min_length=1, max_length=20)
+
+
+class SpeakerEventCreate(BaseModel):
+    participantId: str
+    durationSec: int = Field(default=15, ge=1, le=300)
+    source: Literal["manual", "auto"] = "manual"
+
+
+class SpeakerEventBatch(BaseModel):
+    events: List[SpeakerEventCreate] = Field(min_length=1, max_length=100)
+
+
+class SpeakerEvent(BaseModel):
+    id: str
+    sessionId: str
+    participantId: str
+    timestamp: str
+    durationSec: int
+    source: Literal["manual", "auto"]
+
+
+class TranscriptNoteCreate(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+    participantId: Optional[str] = None
+    source: Literal["manual", "auto"] = "manual"
+
+
+class TranscriptNote(BaseModel):
+    id: str
+    sessionId: str
+    timestamp: str
+    text: str
+    participantId: Optional[str] = None
+    participantName: Optional[str] = None
+    source: Literal["manual", "auto"]
+
+
+class SpeakerMappingUpdate(BaseModel):
+    participantId: str
+
+
 # ── メモリ内状態（録音・永続化なし） ──
 
 _MAX_ALERTS = 50
+_MAX_SPEAKER_EVENTS = 5000
+_PARTICIPANT_COLORS = [
+    "#00f2ff", "#00ff88", "#ffaa00", "#ff4466", "#7000ff",
+    "#38bdf8", "#f472b6", "#a3e635", "#fb7185", "#c084fc",
+]
 
 _lock = threading.Lock()
 _session: Optional[Session] = None
 _alerts: deque = deque(maxlen=_MAX_ALERTS)
+_participants: List[Participant] = []
+_speaker_events: deque = deque(maxlen=_MAX_SPEAKER_EVENTS)
+_transcript_notes: deque = deque(maxlen=200)
+_audio_ai = LocalAudioAI()
+_speaker_mapping: dict[str, str] = {}
+_transcription_source_id: Optional[str] = None
+_transcription_state: Literal["off", "starting", "listening", "processing", "unavailable", "error"] = "off"
+_transcription_error: Optional[str] = None
+_transcription_updated_at: float = 0.0
+_current_speaker_key: Optional[str] = None
+_current_speaker_confidence: float = 0.0
+_current_speaker_at: float = 0.0
+_latest_transcript_text: str = ""
 _seq = 0
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _participant_name(i: int) -> str:
+    return f"{chr(65 + i)}さん" if i < 26 else f"参加者{i + 1}"
+
+
+def _make_participants(names: List[str], count: int) -> List[Participant]:
+    clean = [n.strip() for n in names if n.strip()]
+    if not clean:
+        clean = [_participant_name(i) for i in range(count)]
+    clean = clean[:20]
+    return [
+        Participant(
+            id=f"speaker_{i + 1}",
+            name=name[:30],
+            color=_PARTICIPANT_COLORS[i % len(_PARTICIPANT_COLORS)],
+        )
+        for i, name in enumerate(clean)
+    ]
+
+
+def _participant_exists(participant_id: str) -> bool:
+    return any(p.id == participant_id for p in _participants)
+
+
+def _participant_name_by_id(participant_id: Optional[str]) -> Optional[str]:
+    if participant_id is None:
+        return None
+    for participant in _participants:
+        if participant.id == participant_id:
+            return participant.name
+    return None
+
+
+def _reset_transcription_locked() -> None:
+    global _transcription_source_id, _transcription_state, _transcription_error
+    global _transcription_updated_at, _current_speaker_key, _current_speaker_confidence
+    global _current_speaker_at, _latest_transcript_text
+    _audio_ai.reset()
+    _speaker_mapping.clear()
+    _transcription_source_id = None
+    _transcription_state = "off"
+    _transcription_error = None
+    _transcription_updated_at = time.time()
+    _current_speaker_key = None
+    _current_speaker_confidence = 0.0
+    _current_speaker_at = 0.0
+    _latest_transcript_text = ""
+
+
+def _speaker_display_locked(speaker_key: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    if speaker_key is None:
+        return None, None
+    participant_id = _speaker_mapping.get(speaker_key)
+    participant_name = _participant_name_by_id(participant_id)
+    if participant_name:
+        return participant_id, participant_name
+    try:
+        number = int(speaker_key.rsplit("_", 1)[-1])
+    except ValueError:
+        number = len(_speaker_mapping) + 1
+    return None, f"話者{number}"
+
+
+def _transcription_status_locked(now: Optional[float] = None) -> dict:
+    current_now = now if now is not None else time.time()
+    speaker_key = _current_speaker_key if current_now - _current_speaker_at <= 5.0 else None
+    participant_id, speaker_name = _speaker_display_locked(speaker_key)
+    clusters = []
+    for cluster in _audio_ai.clusters():
+        mapped_id, mapped_name = _speaker_display_locked(cluster["key"])
+        clusters.append({
+            **cluster,
+            "participantId": mapped_id,
+            "name": mapped_name,
+        })
+    return {
+        "active": _transcription_source_id is not None,
+        "state": _transcription_state,
+        "sourceId": _transcription_source_id,
+        "engineAvailable": _audio_ai.transcription_available,
+        "engine": "faster-whisper" if _audio_ai.transcription_available else None,
+        "model": _audio_ai.transcription_model,
+        "speakerEngine": _audio_ai.speaker_engine,
+        "speakerEngineError": _audio_ai.speaker_error,
+        "currentSpeakerKey": speaker_key,
+        "currentParticipantId": participant_id,
+        "currentSpeakerName": speaker_name,
+        "currentSpeakerConfidence": _current_speaker_confidence if speaker_key else 0.0,
+        "latestText": _latest_transcript_text,
+        "updatedAt": datetime.fromtimestamp(_transcription_updated_at or current_now, timezone.utc).isoformat(),
+        "audioRetention": "memory-only",
+        "cloudUpload": False,
+        "clusters": clusters,
+    }
+
+
+def _speaker_stats_locked(now: float) -> dict:
+    totals = {p.id: 0 for p in _participants}
+    recent = {p.id: 0 for p in _participants}
+    latest: Optional[SpeakerEvent] = None
+
+    for event in _speaker_events:
+        if event.sessionId != _session.id:
+            continue
+        if event.participantId not in totals:
+            continue
+        totals[event.participantId] += event.durationSec
+        event_ts = datetime.fromisoformat(event.timestamp).timestamp()
+        if event_ts >= now - 300:
+            recent[event.participantId] += event.durationSec
+        if latest is None or event.timestamp > latest.timestamp:
+            latest = event
+
+    total_sum = sum(totals.values())
+    recent_sum = sum(recent.values())
+
+    def rows(bucket: dict, denom: int) -> List[dict]:
+        return [
+            {
+                "participantId": p.id,
+                "name": p.name,
+                "color": p.color,
+                "seconds": bucket.get(p.id, 0),
+                "share": round(bucket.get(p.id, 0) / denom, 4) if denom else 0.0,
+            }
+            for p in _participants
+        ]
+
+    return {
+        "active": _session is not None,
+        "participants": _participants,
+        "total": rows(totals, total_sum),
+        "recent5m": rows(recent, recent_sum),
+        "totalSeconds": total_sum,
+        "recent5mSeconds": recent_sum,
+        "latestEvent": latest,
+    }
 
 
 # ── エンドポイント ──
@@ -112,22 +322,27 @@ def get_session():
     """現在のセッション状態。テーブル表示/リモコンの起動時確認に使う。"""
     with _lock:
         if _session is None:
-            return {"active": False, "session": None, "seq": _seq}
-        return {"active": True, "session": _session, "seq": _seq}
+            return {"active": False, "session": None, "seq": _seq, "participants": []}
+        return {
+            "active": True,
+            "session": _session,
+            "seq": _seq,
+            "participants": _participants,
+        }
 
 
 def _privacy_for_mode(mode: SessionMode) -> dict:
     """解析モードからプライバシー状態を導出する（10.1 常時表示用）。
 
     フロント derivePrivacy（src/lib/talkbalancer.ts）と同一マッピングにすること：
-    transcript のみ録音・文字起こしが True、それ以外は全 False。
-    クラウド送信はローカル処理前提のため常に False。将来 transcript を実装した
-    瞬間に表示と実態が一致するよう、ハードコードせずモードから算出する。
+    transcript のみローカル文字起こしが True。音声はメモリ上の短い断片として
+    Local Serverへ送るが、録音保存とクラウド送信はどのモードでも行わない。
     """
     is_transcript = mode == "transcript"
     return {
-        "recording": is_transcript,
+        "recording": False,
         "transcription": is_transcript,
+        "localAudioProcessing": is_transcript,
         "cloudUpload": False,
         "savePolicy": "none",
     }
@@ -136,14 +351,11 @@ def _privacy_for_mode(mode: SessionMode) -> dict:
 @router.post("/session", status_code=201)
 def start_session(body: SessionCreate):
     """セッション開始（F-02 同意確認後に呼ぶ）。既存セッションは置き換える。"""
-    global _session, _seq
-    # 未実装モードはサーバー側でも拒否する（UI 無効化だけに依存しない多層防御）。
-    # 404 は使わない：フロント tbFetch が 404 をデモモード切替に使うため、業務
-    # ルール上の拒否は 400 とする。
+    global _session, _seq, _participants
     if body.mode not in IMPLEMENTED_MODES:
         raise HTTPException(
             status_code=400,
-            detail=f"解析モード '{body.mode}' は未実装です。現在は volume_only のみ利用できます",
+            detail=f"解析モード '{body.mode}' は未実装です",
         )
     with _lock:
         _session = Session(
@@ -153,22 +365,132 @@ def start_session(body: SessionCreate):
             mode=body.mode,
             agreedAt=body.agreedAt,
         )
+        _participants = _make_participants(body.participantNames, body.participantCount)
         _alerts.clear()
+        _speaker_events.clear()
+        _transcript_notes.clear()
         _seq = 0
         _reset_metrics_locked()
-        return {"active": True, "session": _session, "seq": _seq}
+        _reset_transcription_locked()
+        return {"active": True, "session": _session, "seq": _seq, "participants": _participants}
 
 
 @router.delete("/session")
 def end_session():
     """セッション終了。全データを破棄する（10.1 終了時にデータ削除）。"""
-    global _session, _seq
+    global _session, _seq, _participants
     with _lock:
         _session = None
+        _participants = []
         _alerts.clear()
+        _speaker_events.clear()
+        _transcript_notes.clear()
         _seq = 0
         _reset_metrics_locked()
+        _reset_transcription_locked()
         return {"active": False, "deleted": True}
+
+
+@router.get("/participants")
+def get_participants():
+    """テーブル人数と話者ラベル。MVPでは手動記録、将来は話者分離のクラスタに接続する。"""
+    with _lock:
+        return {"active": _session is not None, "participants": _participants}
+
+
+@router.put("/participants")
+def put_participants(body: ParticipantsUpdate):
+    """参加者名を更新する。話者イベントはラベル変更に追従する。"""
+    global _participants
+    with _lock:
+        if _session is None:
+            raise HTTPException(status_code=409, detail="セッションが開始されていません")
+        _participants = _make_participants(body.names, len(body.names))
+        return {"active": True, "participants": _participants}
+
+
+def _record_speaker_event_locked(body: SpeakerEventCreate) -> SpeakerEvent:
+    if _session is None:
+        raise HTTPException(status_code=409, detail="セッションが開始されていません")
+    if not _participant_exists(body.participantId):
+        raise HTTPException(status_code=404, detail="参加者が見つかりません")
+    event = SpeakerEvent(
+        id=uuid.uuid4().hex[:12],
+        sessionId=_session.id,
+        participantId=body.participantId,
+        timestamp=_now_iso(),
+        durationSec=body.durationSec,
+        source=body.source,
+    )
+    _speaker_events.append(event)
+    return event
+
+
+@router.post("/speaker-events", status_code=201)
+def post_speaker_event(body: SpeakerEventCreate):
+    """話者の発話時間を手動記録する。将来の話者分離は同じイベント形式で投入する。"""
+    with _lock:
+        event = _record_speaker_event_locked(body)
+        return {"event": event, "stats": _speaker_stats_locked(time.time())}
+
+
+@router.post("/speaker-events/batch", status_code=201)
+def post_speaker_event_batch(body: SpeakerEventBatch):
+    """5分ごとのまとめ投入や将来の話者分離バッチ投入に使う。"""
+    with _lock:
+        events = [_record_speaker_event_locked(item) for item in body.events]
+        return {"events": events, "stats": _speaker_stats_locked(time.time())}
+
+
+@router.get("/speaker-stats")
+def get_speaker_stats():
+    """話者別の全体/直近5分の発話比率。円グラフ表示用。"""
+    with _lock:
+        if _session is None:
+            return {
+                "active": False, "participants": [], "total": [], "recent5m": [],
+                "totalSeconds": 0, "recent5mSeconds": 0, "latestEvent": None,
+            }
+        return _speaker_stats_locked(time.time())
+
+
+@router.get("/transcript-notes")
+def get_transcript_notes():
+    """モードC用の自動文字起こし/手動補正メモ。録音保存はせず、メモリ内のみ保持する。"""
+    with _lock:
+        if _session is None:
+            return {"active": False, "enabled": False, "notes": []}
+        return {
+            "active": True,
+            "enabled": _session.mode == "transcript",
+            "notes": list(_transcript_notes),
+        }
+
+
+@router.post("/transcript-notes", status_code=201)
+def post_transcript_note(body: TranscriptNoteCreate):
+    """モードCでのみ、幹事が文字起こしへの補正メモを追加できる。"""
+    with _lock:
+        if _session is None:
+            raise HTTPException(status_code=409, detail="セッションが開始されていません")
+        if _session.mode != "transcript":
+            raise HTTPException(status_code=409, detail="文字起こしメモはモードCでのみ使えます")
+        if body.participantId is not None and not _participant_exists(body.participantId):
+            raise HTTPException(status_code=404, detail="参加者が見つかりません")
+        text = body.text.strip()
+        if not text:
+            raise HTTPException(status_code=422, detail="メモ本文が空です")
+        note = TranscriptNote(
+            id=uuid.uuid4().hex[:12],
+            sessionId=_session.id,
+            timestamp=_now_iso(),
+            text=text,
+            participantId=body.participantId,
+            participantName=_participant_name_by_id(body.participantId),
+            source=body.source,
+        )
+        _transcript_notes.append(note)
+        return {"note": note, "notes": list(_transcript_notes)}
 
 
 def _create_alert_locked(alert_type: str, source: str) -> AlertEvent:
@@ -239,6 +561,8 @@ def get_report():
             "alertCounts": counts,
             "latestAlerts": list(_alerts)[-5:],
             "analysis": _compute_analysis_locked(now),
+            "speakerStats": _speaker_stats_locked(now),
+            "transcriptNotes": list(_transcript_notes)[-20:],
             "privacy": _privacy_for_mode(_session.mode),
         }
 
@@ -405,3 +729,233 @@ async def ws_metrics(ws: WebSocket):
             await ws.send_json(analysis)
     except WebSocketDisconnect:
         pass
+
+
+# ════════════════════════════════════════════════════════
+# Mode C: Local Server文字起こし＋オンライン話者推定
+#
+# 端末から16kHz/mono/PCM16の短い断片を受け取る。音声ファイルは作らず、
+# 文字起こし・話者特徴の処理後にメモリから破棄する。
+# ════════════════════════════════════════════════════════
+
+_TRANSCRIPTION_CHUNK_SEC = 6
+_SPEAKER_CHUNK_SEC = 3
+
+
+@router.get("/transcription/status")
+def get_transcription_status():
+    with _lock:
+        return _transcription_status_locked()
+
+
+@router.put("/transcription/speakers/{speaker_key}")
+def map_transcription_speaker(speaker_key: str, body: SpeakerMappingUpdate):
+    with _lock:
+        if _session is None:
+            raise HTTPException(status_code=409, detail="セッションが開始されていません")
+        if not _participant_exists(body.participantId):
+            raise HTTPException(status_code=404, detail="参加者が見つかりません")
+        known = {cluster["key"] for cluster in _audio_ai.clusters()}
+        if speaker_key not in known:
+            raise HTTPException(status_code=404, detail="自動話者ラベルが見つかりません")
+        # 同じ参加者への再割当は許可し、以前の自動ラベルとの対応を置き換える。
+        for key, participant_id in list(_speaker_mapping.items()):
+            if participant_id == body.participantId and key != speaker_key:
+                del _speaker_mapping[key]
+        _speaker_mapping[speaker_key] = body.participantId
+        return _transcription_status_locked()
+
+
+async def _process_transcription_chunk(
+    ws: WebSocket,
+    send_lock: asyncio.Lock,
+    source_id: str,
+    pcm: bytes,
+    speaker_key: Optional[str],
+) -> None:
+    global _transcription_state, _transcription_error, _transcription_updated_at
+    global _latest_transcript_text
+
+    with _lock:
+        if _transcription_source_id != source_id or _session is None:
+            return
+        _transcription_state = "processing"
+        _transcription_error = None
+        _transcription_updated_at = time.time()
+        processing_status = _transcription_status_locked()
+    async with send_lock:
+        await ws.send_json({"type": "transcription_status", **processing_status})
+
+    try:
+        result = await asyncio.to_thread(_audio_ai.transcribe, pcm, 16000)
+    except Exception as exc:
+        with _lock:
+            if _transcription_source_id != source_id:
+                return
+            _transcription_state = "error"
+            _transcription_error = str(exc)[:300]
+            _transcription_updated_at = time.time()
+            error_status = _transcription_status_locked()
+            error_status["error"] = _transcription_error
+        async with send_lock:
+            await ws.send_json({"type": "transcription_status", **error_status})
+        return
+
+    with _lock:
+        if _transcription_source_id != source_id or _session is None:
+            return
+        if result.text:
+            participant_id, participant_name = _speaker_display_locked(speaker_key)
+            note = TranscriptNote(
+                id=uuid.uuid4().hex[:12],
+                sessionId=_session.id,
+                timestamp=_now_iso(),
+                text=result.text[:500],
+                participantId=participant_id,
+                participantName=participant_name,
+                source="auto",
+            )
+            _transcript_notes.append(note)
+            _latest_transcript_text = note.text
+        _transcription_state = "listening"
+        _transcription_error = None
+        _transcription_updated_at = time.time()
+        completed_status = _transcription_status_locked()
+        completed_status["confidence"] = result.confidence
+        completed_status["language"] = result.language
+    async with send_lock:
+        await ws.send_json({"type": "transcription_status", **completed_status})
+
+
+@router.websocket("/ws/transcription")
+async def ws_transcription(ws: WebSocket):
+    """16kHz mono PCM16をローカル処理する。音声は保存しない。"""
+    global _transcription_source_id, _transcription_state, _transcription_error
+    global _transcription_updated_at, _current_speaker_key
+    global _current_speaker_confidence, _current_speaker_at
+
+    await ws.accept()
+    source_id = uuid.uuid4().hex[:12]
+    send_lock = asyncio.Lock()
+    transcription_task: Optional[asyncio.Task] = None
+    speaker_buffer = bytearray()
+    transcription_buffer = bytearray()
+    sample_rate = 16000
+
+    with _lock:
+        if _session is None or _session.mode != "transcript":
+            await ws.send_json({"error": "モードCのセッションが開始されていません"})
+            await ws.close(code=4000)
+            return
+        _transcription_source_id = source_id
+        _transcription_state = "starting" if _audio_ai.transcription_available else "unavailable"
+        _transcription_error = None if _audio_ai.transcription_available else "ローカル文字起こしモデルが未導入です"
+        _transcription_updated_at = time.time()
+        initial_status = _transcription_status_locked()
+        if _transcription_error:
+            initial_status["error"] = _transcription_error
+    await ws.send_json({"type": "transcription_status", **initial_status})
+
+    try:
+        while True:
+            message = await ws.receive()
+            if message.get("type") == "websocket.disconnect":
+                raise WebSocketDisconnect()
+
+            text_message = message.get("text")
+            if text_message:
+                try:
+                    config = json.loads(text_message)
+                    requested_source = config.get("sourceId")
+                    if isinstance(requested_source, str) and requested_source:
+                        with _lock:
+                            if _transcription_source_id == source_id:
+                                _transcription_source_id = requested_source
+                                source_id = requested_source
+                    requested_rate = config.get("sampleRate")
+                    if requested_rate != 16000:
+                        async with send_lock:
+                            await ws.send_json({"error": "sampleRate must be 16000"})
+                    else:
+                        configured_status = None
+                        with _lock:
+                            if _transcription_source_id == source_id:
+                                _transcription_state = "listening" if _audio_ai.transcription_available else "unavailable"
+                                _transcription_updated_at = time.time()
+                                configured_status = _transcription_status_locked()
+                        if configured_status is not None:
+                            async with send_lock:
+                                await ws.send_json({"type": "transcription_status", **configured_status})
+                except (ValueError, TypeError):
+                    async with send_lock:
+                        await ws.send_json({"error": "invalid transcription config"})
+                continue
+
+            pcm = message.get("bytes")
+            if not pcm:
+                continue
+            speaker_buffer.extend(pcm)
+            transcription_buffer.extend(pcm)
+
+            speaker_bytes = sample_rate * 2 * _SPEAKER_CHUNK_SEC
+            if len(speaker_buffer) >= speaker_bytes:
+                speaker_pcm = bytes(speaker_buffer[:speaker_bytes])
+                del speaker_buffer[:speaker_bytes]
+                with _lock:
+                    participant_limit = max(1, len(_participants))
+                speaker = await asyncio.to_thread(
+                    _audio_ai.classify_speaker,
+                    speaker_pcm,
+                    sample_rate,
+                    participant_limit,
+                )
+                if speaker is not None:
+                    with _lock:
+                        if _transcription_source_id == source_id and _session is not None:
+                            _current_speaker_key = speaker.key
+                            _current_speaker_confidence = speaker.confidence
+                            _current_speaker_at = time.time()
+                            mapped_participant = _speaker_mapping.get(speaker.key)
+                            if mapped_participant and _participant_exists(mapped_participant):
+                                _record_speaker_event_locked(SpeakerEventCreate(
+                                    participantId=mapped_participant,
+                                    durationSec=_SPEAKER_CHUNK_SEC,
+                                    source="auto",
+                                ))
+                            speaker_status = _transcription_status_locked()
+                    async with send_lock:
+                        await ws.send_json({"type": "speaker_status", **speaker_status})
+
+            if transcription_task is not None and transcription_task.done():
+                try:
+                    await transcription_task
+                except (WebSocketDisconnect, RuntimeError):
+                    pass
+                transcription_task = None
+
+            transcription_bytes = sample_rate * 2 * _TRANSCRIPTION_CHUNK_SEC
+            if len(transcription_buffer) >= transcription_bytes and transcription_task is None:
+                transcription_pcm = bytes(transcription_buffer[:transcription_bytes])
+                del transcription_buffer[:transcription_bytes]
+                with _lock:
+                    speaker_key = _current_speaker_key
+                if _audio_ai.transcription_available:
+                    transcription_task = asyncio.create_task(_process_transcription_chunk(
+                        ws, send_lock, source_id, transcription_pcm, speaker_key,
+                    ))
+            elif len(transcription_buffer) > transcription_bytes * 2:
+                # 遅いPCでも生音声を長時間保持しない。最新12秒を上限にする。
+                del transcription_buffer[:-transcription_bytes * 2]
+    except WebSocketDisconnect:
+        pass
+    finally:
+        if transcription_task is not None and not transcription_task.done():
+            transcription_task.cancel()
+        speaker_buffer.clear()
+        transcription_buffer.clear()
+        with _lock:
+            if _transcription_source_id == source_id:
+                _transcription_source_id = None
+                _transcription_state = "off"
+                _transcription_error = None
+                _transcription_updated_at = time.time()

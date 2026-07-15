@@ -1,42 +1,99 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Wine, Settings2, Mic, MicOff, Volume2, Gauge, Activity } from 'lucide-react';
+import { Wine, Settings2, Mic, MicOff, Volume2, Gauge, Activity, HandHeart } from 'lucide-react';
+import { useTalkBalancerNoiseMeter } from '@/hooks/useTalkBalancerNoiseMeter';
+import { loadMicPreference, rmsToRelativeLevel } from '@/lib/talkbalancer-mic';
 import {
-  fetchTbSession, fetchTbAlerts, tbMetricsWsUrl, isDemoMode, ingestDemoMetric,
-  loadTbMicDevice, clearTbMicDevice,
-  TbSession, TbAlert, TbAnalysis, NOISE_LABELS,
+  fetchTbSession, fetchTbAlerts, isDemoMode,
+  fetchTbSpeakerStats,
+  TbSession, TbAlert, TbSpeakerStats, NOISE_LABELS,
 } from '@/lib/talkbalancer';
 import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
 
 const POLL_MS = 2000;
 const ALERT_SHOW_MS = 25000;
-const METRIC_SEND_MS = 1000;
+const SPEAKER_POLL_MS = 5000;
+const FACILITATION_GRACE_MS = 20 * 60 * 1000;
+
+function transcriptionPublicLabel(state?: string): string {
+  if (state === 'listening' || state === 'processing') return '動作中';
+  if (state === 'starting') return '準備中';
+  if (state === 'unavailable') return 'モデル未導入';
+  if (state === 'error') return '確認が必要';
+  return '停止中';
+}
 
 const MODE_LABELS: Record<string, string> = {
   volume_only: '解析モード：A（音量のみ）',
   balance: '解析モード：B（音量＋発話バランス）',
-  transcript: '解析モード：C（文字起こしあり）',
+  transcript: '解析モード：C（ローカル文字起こし）',
 };
+
+function buildFacilitationCue(stats: TbSpeakerStats | null, session: TbSession | null) {
+  if (!session) return null;
+  const startedAt = new Date(session.startedAt).getTime();
+  if (!Number.isFinite(startedAt) || Date.now() - startedAt < FACILITATION_GRACE_MS) return null;
+  if (!stats || stats.totalSeconds < 30) return null;
+
+  const dominant = stats.total.find((item) => item.share > 0.5);
+  if (!dominant) return null;
+
+  const quiet = stats.total
+    .filter((item) => item.participantId !== dominant.participantId)
+    .sort((a, b) => a.seconds - b.seconds)[0];
+
+  const silentPeople = stats.total.filter((item) => item.seconds === 0);
+  const share = Math.round(dominant.share * 100);
+
+  if (silentPeople.length > 0) {
+    return {
+      title: '話を振るタイミングです',
+      message: `一人の発話が全体の${share}%です。まだ話せていない人がいるので、一度ほかの人へ振ると場が広がりそうです。`,
+      action: 'まだ話していない人へ「最近どうですか？」と振ってみましょう。',
+      tone: 'warning',
+    };
+  }
+
+  if (quiet && dominant.seconds >= quiet.seconds * 2) {
+    return {
+      title: '会話を回す合図です',
+      message: `一人の発話が全体の${share}%です。ほかの人にも話す余地を作ると、バランスが整いそうです。`,
+      action: '近くの人に短く感想を聞いてみましょう。',
+      tone: 'primary',
+    };
+  }
+
+  return {
+    title: '少し偏りがあります',
+    message: `一人の発話が全体の${share}%です。ここで一度、別の人にも話題を渡すとよさそうです。`,
+    action: '近くの人へ「どう思いますか？」と振ってみましょう。',
+    tone: 'primary',
+  };
+}
 
 // F-04 テーブル表示モード ＋ F-06 丁重アラート ＋ Step 3/4 騒音・会話密度メーター
 export default function TableDisplayPage() {
   const [session, setSession] = useState<TbSession | null>(null);
   const [checked, setChecked] = useState(false);
   const [alert, setAlert] = useState<TbAlert | null>(null);
-  const [analysis, setAnalysis] = useState<TbAnalysis | null>(null);
-  const [measuring, setMeasuring] = useState(false);
-  const [micError, setMicError] = useState<string | null>(null);
+  const [speakerStats, setSpeakerStats] = useState<TbSpeakerStats | null>(null);
   const [demo, setDemo] = useState(false);
-  const [disconnected, setDisconnected] = useState(false);
+  const {
+    activeMic,
+    analysis,
+    disconnected,
+    error: micError,
+    measuring,
+    measuringElsewhere,
+    transcription,
+    start: startMeasure,
+    stop: stopMeasure,
+  } = useTalkBalancerNoiseMeter({ transcriptionEnabled: session?.mode === 'transcript' });
 
   const seqRef = useRef(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const ctxRef = useRef<AudioContext | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const sendTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoStartRef = useRef(false);
 
   // 画面を常時表示に保つ（Screen Wake Lock）
@@ -56,6 +113,24 @@ export default function TableDisplayPage() {
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
       lock?.release().catch(() => {});
+    };
+  }, []);
+
+  useEffect(() => {
+    let stopped = false;
+    const loadStats = async () => {
+      try {
+        const stats = await fetchTbSpeakerStats();
+        if (!stopped) setSpeakerStats(stats);
+      } catch {
+        // 話者記録は補助表示なので一時的な失敗は次回更新に任せる
+      }
+    };
+    loadStats();
+    const id = setInterval(loadStats, SPEAKER_POLL_MS);
+    return () => {
+      stopped = true;
+      clearInterval(id);
     };
   }, []);
 
@@ -103,125 +178,14 @@ export default function TableDisplayPage() {
     };
   }, []);
 
-  const stopMeasure = useCallback(() => {
-    if (sendTimer.current) clearInterval(sendTimer.current);
-    sendTimer.current = null;
-    wsRef.current?.close();
-    wsRef.current = null;
-    // 先に streamRef を無効化してから停止する。仮に track.stop() が同期的に
-    // 'ended' を発火させるブラウザでも、切断リスナーの同一性ガードが確実に効く。
-    const stream = streamRef.current;
-    streamRef.current = null;
-    stream?.getTracks().forEach((t) => t.stop());
-    ctxRef.current?.close().catch(() => {});
-    ctxRef.current = null;
-    setMeasuring(false);
-  }, []);
-
-  // Step 3: マイク音量を1秒ごとに集計して WebSocket でサーバーへ送る
-  // （送るのは RMS/ピークの数値のみ。音声波形は端末外に出ない）
-  const startMeasure = useCallback(async () => {
-    setMicError(null);
-    setDisconnected(false);
-    try {
-      const saved = loadTbMicDevice();
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: saved ? { deviceId: { exact: saved.deviceId } } : true,
-        });
-      } catch (err) {
-        // 保存 deviceId が無効（抜去等）なら既定デバイスへフォールバックし保存値を破棄する。
-        // OverconstrainedError は Safari/WebKit で DOMException を継承しないため
-        // instanceof DOMException では判定できない。name で判定し、権限拒否
-        // (NotAllowedError)だけは二重プロンプトを避けて既存の権限エラー表示へ回す。
-        if (saved && err instanceof Error && err.name !== 'NotAllowedError') {
-          clearTbMicDevice();
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        } else {
-          throw err;
-        }
-      }
-      streamRef.current = stream;
-      // F-03: 計測中のマイク切断検知。stopMeasure() の track.stop() では 'ended' は
-      // 発火しないため、ここに来るのは物理切断等のみ。古い stream からの遅延発火は
-      // streamRef の同一性で無視する。
-      const track = stream.getAudioTracks()[0];
-      track?.addEventListener('ended', () => {
-        if (streamRef.current !== stream) return;
-        stopMeasure();
-        setMicError(null); // 切断表示に一本化（前回のサーバー接続エラー等を消す）
-        setDisconnected(true);
-      });
-      const ctx = new AudioContext();
-      ctxRef.current = ctx;
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 2048;
-      ctx.createMediaStreamSource(stream).connect(analyser);
-      const buf = new Float32Array(analyser.fftSize);
-
-      const readMetric = () => {
-        analyser.getFloatTimeDomainData(buf);
-        let sum = 0;
-        let peak = 0;
-        for (let i = 0; i < buf.length; i++) {
-          const v = buf[i];
-          sum += v * v;
-          const a = Math.abs(v);
-          if (a > peak) peak = a;
-        }
-        return { rms: Math.min(1, Math.sqrt(sum / buf.length)), peak: Math.min(1, peak) };
-      };
-
-      // デモモード：サーバーなしでブラウザ内解析（音声は端末から出ない）
-      if (isDemoMode()) {
-        sendTimer.current = setInterval(() => {
-          setAnalysis(ingestDemoMetric(readMetric().rms));
-        }, METRIC_SEND_MS);
-        setMeasuring(true);
-        return;
-      }
-
-      const ws = new WebSocket(tbMetricsWsUrl());
-      wsRef.current = ws;
-      ws.onmessage = (ev) => {
-        try {
-          const data = JSON.parse(ev.data);
-          if (!data.error) setAnalysis(data);
-        } catch { /* 解析結果以外は無視 */ }
-      };
-      ws.onclose = () => { if (wsRef.current === ws) stopMeasure(); };
-      ws.onerror = () => setMicError('サーバーに接続できませんでした');
-
-      ws.onopen = () => {
-        sendTimer.current = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify(readMetric()));
-          }
-        }, METRIC_SEND_MS);
-        setMeasuring(true);
-      };
-    } catch (e) {
-      setMicError(
-        e instanceof DOMException && e.name === 'NotAllowedError'
-          ? 'マイクの使用が許可されませんでした'
-          : 'マイクを開けませんでした'
-      );
-      stopMeasure();
-    }
-  }, [stopMeasure]);
-
-  useEffect(() => () => stopMeasure(), [stopMeasure]);
-
   // P1-3: mic確認済み（tb_mic_device_v1 あり）なら table 到着時に自動計測を開始する。
   // StrictMode の二重effect実行でも二重起動しないよう autoStartRef でガードする。
   useEffect(() => {
-    if (checked && session && loadTbMicDevice() && !autoStartRef.current) {
+    if (checked && session && loadMicPreference() && !measuringElsewhere && !autoStartRef.current) {
       autoStartRef.current = true;
       startMeasure();
     }
-  }, [checked, session, startMeasure]);
-
+  }, [checked, measuringElsewhere, session, startMeasure]);
   if (checked && !session) {
     return (
       <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center gap-6 p-6 text-center">
@@ -242,6 +206,8 @@ export default function TableDisplayPage() {
     analysis?.noiseCategory === 'very_loud' ? 'text-error'
     : analysis?.noiseCategory === 'loud' ? 'text-warning'
     : 'text-success';
+  const balanceEnabled = session?.mode === 'balance' || session?.mode === 'transcript';
+  const facilitationCue = buildFacilitationCue(speakerStats, session);
 
   return (
     <div className="min-h-screen bg-background text-white flex flex-col p-6 select-none">
@@ -263,6 +229,13 @@ export default function TableDisplayPage() {
         <p className="mt-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
           開始前宣言の合意が記録されていません。<Link href="/talkbalancer/declaration" className="underline">宣言画面へ</Link>
         </p>
+      )}
+
+      {session?.mode === 'transcript' && (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-secondary/30 bg-secondary/5 px-3 py-2 text-xs text-text-muted">
+          <span>文字起こし：{transcriptionPublicLabel(transcription?.state)}</span>
+          <span>{transcription?.currentSpeakerKey ? '発話を検知中' : '発話待ち'} ／ 録音保存なし</span>
+        </div>
       )}
 
       {/* メイン：丁重アラート or 平常時メッセージ */}
@@ -287,6 +260,34 @@ export default function TableDisplayPage() {
         )}
       </main>
 
+      {speakerStats && speakerStats.participants.length > 0 && balanceEnabled && (
+        <section className="mb-4 space-y-3">
+          {facilitationCue && (
+            <div className={`rounded-xl border p-4 ${
+              facilitationCue.tone === 'warning'
+                ? 'border-warning/50 bg-warning/10'
+                : 'border-primary/50 bg-primary/10'
+            }`}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="inline-flex items-center gap-2 text-sm font-semibold text-white">
+                    <HandHeart size={17} className={facilitationCue.tone === 'warning' ? 'text-warning' : 'text-primary'} />
+                    {facilitationCue.title}
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-text-muted">{facilitationCue.message}</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-background/50 px-4 py-3 text-sm font-medium text-white">
+                  {facilitationCue.action}
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="rounded-xl border border-border bg-surface px-4 py-3 text-center text-sm text-text-muted">
+            会話バランスを匿名で見守っています。個人名と正確な割合は幹事画面だけに表示します。
+          </div>
+        </section>
+      )}
+
       {/* Step 4: 騒音・会話密度メーター（F-04 表示項目） */}
       <section className="mb-4">
         {measuring && analysis ? (
@@ -294,8 +295,15 @@ export default function TableDisplayPage() {
             <div className="grid grid-cols-3 gap-3 text-center">
               <Meter
                 icon={<Volume2 size={16} />}
-                label="店内音量"
-                value={<span className={noiseTone}>{NOISE_LABELS[analysis.noiseCategory]}</span>}
+                label="店内音量（相対値）"
+                value={(
+                  <span className={noiseTone}>
+                    {NOISE_LABELS[analysis.noiseCategory]}
+                    <span className="mt-1 block font-mono text-xs text-text-muted">
+                      {rmsToRelativeLevel(analysis.noiseLevel)}/100 ・ {analysis.noiseDb.toFixed(1)} dBFS
+                    </span>
+                  </span>
+                )}
                 bar={Math.min(1, analysis.noiseLevel / 0.25)}
                 barClass={analysis.noiseCategory === 'loud' || analysis.noiseCategory === 'very_loud' ? 'bg-warning' : 'bg-primary'}
               />
@@ -315,7 +323,7 @@ export default function TableDisplayPage() {
               />
             </div>
             <p className="mt-2 text-center text-[11px] text-text-muted">
-              ※ 会話バランス（話しすぎ・沈黙の傾向）は話者分離が未実装のため、当面は「会話しやすさ」が代替指標です。話しすぎ・沈黙への声かけは幹事リモコンから手動で行えます。
+              ※ 自動話者はローカル推定です。未対応の話者名や重なった発話は幹事リモコンで確認できます。
             </p>
           </>
         ) : (
@@ -334,10 +342,22 @@ export default function TableDisplayPage() {
                 onClick={startMeasure}
                 className="inline-flex items-center gap-2 rounded-xl border border-primary/50 bg-primary/10 px-5 py-3 text-primary hover:bg-primary/20"
               >
-                <Mic size={16} /> 騒音メーターを開始（録音はしません）
+                <Mic size={16} /> {measuringElsewhere
+                  ? '別画面で計測中・この画面へ切替'
+                  : session?.mode === 'transcript' ? '音量計測＋文字起こしを開始' : '騒音メーターを開始（録音はしません）'}
               </button>
               {micError && <span className="text-error">{micError}</span>}
             </div>
+          </div>
+        )}
+        {measuring && activeMic && (
+          <div className={`mt-2 rounded-lg border px-3 py-2 text-center text-xs ${
+            activeMic.isExternal
+              ? 'border-primary/30 bg-primary/5 text-text-muted'
+              : 'border-warning/40 bg-warning/10 text-warning'
+          }`}>
+            {activeMic.isExternal ? '外部マイク' : '内蔵マイク簡易モード'}：{activeMic.label}
+            {!activeMic.isExternal && ' ／ 数値は絶対騒音dBではなく、同じPC・同じ配置で比較する参考値です。'}
           </div>
         )}
         {measuring && (

@@ -25,6 +25,9 @@ from attention_ledger.core.execute.engine import ExecutionEngine
 from attention_ledger.core.llm.adapter import OllamaAdapter
 from attention_ledger.core.llm.mock_adapter import MockAdapter
 from attention_ledger.core.llm.config import settings
+from attention_ledger.core.hermes.model import HermesRunConfig
+from attention_ledger.core.hermes.runner import HermesRunner
+from attention_ledger.core.hermes.store import HermesStore
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +47,13 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 # ── CORS (dev only — production serves from same origin) ──
 if os.getenv("ATTENTION_LEDGER_DEV"):
+    dev_origins = os.getenv(
+        "ATTENTION_LEDGER_CORS_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3107,http://127.0.0.1:3107",
+    ).split(",")
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+        allow_origins=[origin.strip() for origin in dev_origins if origin.strip()],
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Content-Type"],
@@ -57,6 +64,8 @@ _PYTHON_DIR = Path(__file__).resolve().parents[2]
 _PROJECT_ROOT = _PYTHON_DIR.parent  # repo root (contains out/, python/, src/)
 _DEFAULT_TASKS_DIR = _PYTHON_DIR / "tasks"
 _DEFAULT_DB_PATH = _PYTHON_DIR / "ledger.db"
+_DEFAULT_HERMES_ARTIFACT_DIR = _PYTHON_DIR / "hermes_artifacts"
+_DEFAULT_HERMES_PROFILE_DIR = _PYTHON_DIR / "hermes_profiles"
 _STATIC_DIR = Path(os.getenv("ATTENTION_LEDGER_STATIC_DIR", str(_PROJECT_ROOT / "out")))
 
 # ── Input validation ──
@@ -85,12 +94,31 @@ def _db_path() -> str:
 
 # Singleton store to avoid repeated _init_db
 _ledger_store: Optional[LedgerStore] = None
+_hermes_store: Optional[HermesStore] = None
 
 def _store() -> LedgerStore:
     global _ledger_store
     if _ledger_store is None:
         _ledger_store = LedgerStore(db_path=_db_path())
     return _ledger_store
+
+
+def _hermes_artifact_dir() -> Path:
+    return Path(os.getenv("HERMES_ARTIFACT_DIR", str(_DEFAULT_HERMES_ARTIFACT_DIR)))
+
+
+def _hermes_profile_dir() -> Path:
+    return Path(os.getenv("HERMES_PROFILE_DIR", str(_DEFAULT_HERMES_PROFILE_DIR)))
+
+
+def _hermes_store_instance() -> HermesStore:
+    global _hermes_store
+    if _hermes_store is None:
+        _hermes_store = HermesStore(
+            db_path=_db_path(),
+            artifact_dir=str(_hermes_artifact_dir()),
+        )
+    return _hermes_store
 
 
 def _make_agent(baseline_id: str, mock: bool) -> FirstTimeUserAgent:
@@ -184,6 +212,19 @@ class ConfigUpdateRequest(BaseModel):
     ollama_url: str = Field(..., max_length=256)
     model_name: str = Field(..., max_length=64)
     temperature: float = Field(..., ge=0.0, le=2.0)
+
+
+class HermesRunRequest(BaseModel):
+    url: str = Field(..., min_length=1, max_length=2048)
+    task: str = Field(..., min_length=1, max_length=1000)
+    product_area: str = Field("hermes", max_length=64)
+    profile_name: str = Field("default", max_length=64)
+    allow_hosts: List[str] = Field(default_factory=list, max_length=20)
+    redact_selectors: List[str] = Field(default_factory=list, max_length=50)
+    max_steps: int = Field(1, ge=1, le=20)
+    save_screenshots: bool = True
+    capture_network: bool = True
+    capture_web_vitals: bool = True
 
 
 # ── Background task state (in-memory, MVP) ──
@@ -356,6 +397,48 @@ def list_runs(
 @api.get("/history", response_model=List[RunSummary])
 def list_history(limit: int = Query(10, ge=1, le=100), include_metrics: bool = Query(False)):
     return list_runs(limit=limit, include_metrics=include_metrics)
+
+
+# ═══════════════════════════════════════════
+# Hermes (privacy-safe personal audit memory)
+# ═══════════════════════════════════════════
+
+@api.post("/hermes/runs")
+async def create_hermes_run(payload: HermesRunRequest):
+    """Run a privacy-safe Hermes audit and persist metadata-only evidence."""
+    try:
+        config = HermesRunConfig(**payload.model_dump())
+        runner = HermesRunner(
+            store=_hermes_store_instance(),
+            artifact_dir=str(_hermes_artifact_dir()),
+            profile_root=str(_hermes_profile_dir()),
+        )
+        result = await runner.run(config)
+        return result.model_dump()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@api.get("/hermes/runs")
+def list_hermes_runs(limit: int = Query(50, ge=1, le=200)):
+    return _hermes_store_instance().list_runs(limit=limit)
+
+
+@api.get("/hermes/runs/{run_id}")
+def get_hermes_run(run_id: int):
+    run = _hermes_store_instance().get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Hermes run not found")
+    return run
+
+
+@api.get("/hermes/runs/{run_id}/screenshots/{step_index}")
+def get_hermes_screenshot(run_id: int, step_index: int):
+    path = _hermes_store_instance().resolve_screenshot(run_id, step_index)
+    if not path:
+        raise HTTPException(status_code=404, detail="Hermes screenshot not found")
+    from fastapi.responses import FileResponse
+    return FileResponse(path, media_type="image/png")
 
 
 # ═══════════════════════════════════════════

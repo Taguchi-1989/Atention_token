@@ -1,7 +1,10 @@
 # Attention Ledger Local - Roadmap v3.0
 
-**Last Updated:** 2026-04-06  
-**Current Status:** 初回実験完了 → Phase 8（実証研究の深化）へ
+**Last Updated:** 2026-07-14
+**Current Status:** Attention Ledger Phase 8は研究バックログ。現在の開発マイルストーンは TalkBalancer v0.3 安定化。
+
+TalkBalancer の詳細は [talkbalancer/README.md](talkbalancer/README.md) と
+[talkbalancer/TEST_PLAN.md](talkbalancer/TEST_PLAN.md) を参照する。
 
 ---
 
@@ -25,7 +28,7 @@
 
 - Pydantic v2 互換、SQLite context manager、コネクションリーク修正
 - SUS を run_id ベースに修正
-- テスト: Python 34件 + Jest 9件
+- テスト: Pythonコア73件 + Ollama任意2件 + Jest 12件（v0.3安定化時点）
 
 ### Phase 6: デプロイ・PoC ✅
 
@@ -138,7 +141,7 @@
 | LLM ビジョン | Ollama (qwen3-vl:4b) | ✅ |
 | ブラウザ操作 | Playwright (実URL対応) | ✅ |
 | ストレージ | SQLite (WAL, append-only) | ✅ |
-| テスト | pytest 34件 + Jest 9件 | ✅ |
+| テスト | pytest + Jest + Next.js build | ✅ |
 | デプロイ | Docker (マルチステージ統合) | ✅ |
 | CI | GitHub Actions | ✅ |
 

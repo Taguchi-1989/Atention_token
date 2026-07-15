@@ -8,6 +8,8 @@ import httpx
 import pytest
 from attention_ledger.core.llm.adapter import OllamaAdapter
 
+pytestmark = pytest.mark.ollama
+
 # Ollama エンドポイントに到達できないときに投げられる接続系の例外。
 # これらはテスト対象の不具合ではなく実行環境の都合なのでスキップする。
 _CONNECTION_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout)

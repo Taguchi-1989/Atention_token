@@ -143,3 +143,47 @@ export async function fetchRunsForTask(taskId: string, limit = 100) {
   const all = await res.json();
   return (all as Array<{ task_id: string }>).filter(r => r.task_id === taskId);
 }
+
+// ── Hermes ──
+
+export interface HermesRunRequest {
+  url: string;
+  task: string;
+  product_area: string;
+  profile_name?: string;
+  allow_hosts?: string[];
+  redact_selectors?: string[];
+  max_steps?: number;
+  save_screenshots?: boolean;
+  capture_network?: boolean;
+  capture_web_vitals?: boolean;
+}
+
+export async function createHermesRun(payload: HermesRunRequest) {
+  const res = await fetch(`${API_BASE_URL}/hermes/runs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail || 'Failed to create Hermes run');
+  }
+  return res.json();
+}
+
+export async function fetchHermesRuns(limit = 50) {
+  const res = await fetch(`${API_BASE_URL}/hermes/runs?limit=${limit}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Failed to fetch Hermes runs');
+  return res.json();
+}
+
+export async function fetchHermesRun(runId: number) {
+  const res = await fetch(`${API_BASE_URL}/hermes/runs/${runId}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Failed to fetch Hermes run');
+  return res.json();
+}
+
+export function getHermesScreenshotUrl(runId: number, stepIndex: number): string {
+  return `${API_BASE_URL}/hermes/runs/${runId}/screenshots/${stepIndex}`;
+}

@@ -26,10 +26,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.lock
 
       - name: Run pytest (skip Playwright tests in CI)
-        run: pytest --tb=short -q -k "not playwright"
+        run: pytest --tb=short -q -k "not playwright" -m "not ollama"
 
   # ── Job 2: Node.js frontend ──
   node:

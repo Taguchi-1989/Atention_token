@@ -28,6 +28,12 @@ export interface TbSession {
   agreedAt?: string | null;
 }
 
+export interface TbParticipant {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface TbAlert {
   seq: number;
   sessionId: string;
@@ -42,6 +48,7 @@ export interface SessionState {
   active: boolean;
   session: TbSession | null;
   seq: number;
+  participants?: TbParticipant[];
 }
 
 // F-07 / Step 4: サーバー解析結果
@@ -70,12 +77,84 @@ export interface TbReport {
   alertCounts?: Record<AlertType, number>;
   latestAlerts?: TbAlert[];
   analysis?: TbAnalysis;
+  speakerStats?: TbSpeakerStats;
+  transcriptNotes?: TbTranscriptNote[];
   privacy?: {
     recording: boolean;
     transcription: boolean;
+    localAudioProcessing: boolean;
     cloudUpload: boolean;
     savePolicy: 'none';
   };
+}
+
+export interface TbSpeakerSlice {
+  participantId: string;
+  name: string;
+  color: string;
+  seconds: number;
+  share: number;
+}
+
+export interface TbSpeakerEvent {
+  id: string;
+  sessionId: string;
+  participantId: string;
+  timestamp: string;
+  durationSec: number;
+  source: 'manual' | 'auto';
+}
+
+export interface TbSpeakerStats {
+  active: boolean;
+  participants: TbParticipant[];
+  total: TbSpeakerSlice[];
+  recent5m: TbSpeakerSlice[];
+  totalSeconds: number;
+  recent5mSeconds: number;
+  latestEvent: TbSpeakerEvent | null;
+}
+
+export interface TbTranscriptNote {
+  id: string;
+  sessionId: string;
+  timestamp: string;
+  text: string;
+  participantId: string | null;
+  participantName: string | null;
+  source: 'manual' | 'auto';
+}
+
+export type TbTranscriptionState = 'off' | 'starting' | 'listening' | 'processing' | 'unavailable' | 'error';
+
+export interface TbAutoSpeakerCluster {
+  key: string;
+  sampleCount: number;
+  participantId: string | null;
+  name: string | null;
+}
+
+export interface TbTranscriptionStatus {
+  active: boolean;
+  state: TbTranscriptionState;
+  sourceId: string | null;
+  engineAvailable: boolean;
+  engine: string | null;
+  model: string;
+  speakerEngine: 'pyannote' | 'acoustic';
+  speakerEngineError?: string | null;
+  currentSpeakerKey: string | null;
+  currentParticipantId: string | null;
+  currentSpeakerName: string | null;
+  currentSpeakerConfidence: number;
+  latestText: string;
+  updatedAt: string;
+  audioRetention: 'memory-only';
+  cloudUpload: false;
+  clusters: TbAutoSpeakerCluster[];
+  error?: string | null;
+  confidence?: number;
+  language?: string;
 }
 
 export const NOISE_LABELS: Record<NoiseCategory, string> = {
@@ -89,24 +168,25 @@ export const NOISE_LABELS: Record<NoiseCategory, string> = {
 export const TB_MODE_LABELS: Record<SessionMode, string> = {
   volume_only: 'モードA：音量のみ',
   balance: 'モードB：音量＋発話バランス',
-  transcript: 'モードC：文字起こしあり',
+  transcript: 'モードC：ローカル文字起こし＋自動話者',
 };
 
 export interface TbPrivacy {
   recording: boolean;
   transcription: boolean;
+  localAudioProcessing: boolean;
   cloudUpload: boolean;
 }
 
 // 解析モードからプライバシー状態を導出する（10.1 常時表示用）。
 // backend の _privacy_for_mode と同一マッピングにすること：
-// transcript のみ録音・文字起こしが ON、それ以外（null/未開始 含む）は全 OFF。
-// クラウド送信はローカル処理前提のため常に false。
+// transcript のみローカル文字起こしとPC一時処理が ON。録音保存とクラウド送信は常に OFF。
 export function derivePrivacy(mode: SessionMode | null | undefined): TbPrivacy {
   const isTranscript = mode === 'transcript';
   return {
-    recording: isTranscript,
+    recording: false,
     transcription: isTranscript,
+    localAudioProcessing: isTranscript,
     cloudUpload: false,
   };
 }
@@ -114,25 +194,45 @@ export function derivePrivacy(mode: SessionMode | null | undefined): TbPrivacy {
 const TB = `${API_BASE_URL}/talkbalancer`;
 
 // ── デモモード判定 ──
-// ネットワークエラー、または API パスが 404（静的ホスティング）の場合に
-// デモモードへ切り替える。一度切り替わったらページ再読み込みまで維持する。
+// ネットワークエラー、または静的ホスティング特有の 404 / 405 の場合に
+// デモモードへ切り替える。画面遷移をまたいでも同じタブ内では維持する。
+const DEMO_MODE_KEY = 'talkbalancer_demo_mode_v1';
 let demoMode = false;
 
+function hasStoredDemoMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.sessionStorage.getItem(DEMO_MODE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function enableDemoMode(): void {
+  demoMode = true;
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(DEMO_MODE_KEY, '1');
+  } catch {
+    // ストレージを使えないブラウザでも、現在のページ内では継続できる。
+  }
+}
+
 export function isDemoMode(): boolean {
-  return demoMode;
+  return demoMode || hasStoredDemoMode();
 }
 
 async function tbFetch(path: string, init?: RequestInit): Promise<Response | null> {
-  if (demoMode) return null;
+  if (isDemoMode()) return null;
   try {
     const res = await fetch(`${TB}${path}`, init);
-    if (res.status === 404) {
-      demoMode = true;
+    if (res.status === 404 || res.status === 405) {
+      enableDemoMode();
       return null;
     }
     return res;
   } catch {
-    demoMode = true;
+    enableDemoMode();
     return null;
   }
 }
@@ -147,14 +247,21 @@ export async function fetchTbSession(): Promise<SessionState> {
 export async function startTbSession(
   title: string,
   mode: SessionMode,
+  participantNames?: string[],
   agreedAt?: string | null,
 ): Promise<SessionState> {
   const res = await tbFetch('/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, mode, agreedAt: agreedAt ?? null }),
+    body: JSON.stringify({
+      title,
+      mode,
+      participantCount: participantNames?.length,
+      participantNames,
+      agreedAt: agreedAt ?? null,
+    }),
   });
-  if (!res) return demo.startSession(title, mode, agreedAt ?? null);
+  if (!res) return demo.startSession(title, mode, participantNames, agreedAt ?? null);
   if (!res.ok) throw new Error('Failed to start session');
   return res.json();
 }
@@ -187,7 +294,7 @@ export async function fetchTbAlerts(after: number): Promise<{ alerts: TbAlert[];
 
 export async function fetchTbAnalysis(): Promise<TbAnalysis> {
   const res = await tbFetch('/analysis', { cache: 'no-store' });
-  if (!res) return demo.ingestLocalMetric(0);
+  if (!res) return demo.getAnalysis();
   if (!res.ok) throw new Error('Failed to fetch analysis');
   return res.json();
 }
@@ -196,6 +303,112 @@ export async function fetchTbReport(): Promise<TbReport> {
   const res = await tbFetch('/report', { cache: 'no-store' });
   if (!res) return demo.getReport();
   if (!res.ok) throw new Error('Failed to fetch report');
+  return res.json();
+}
+
+export async function fetchTbParticipants(): Promise<{ active: boolean; participants: TbParticipant[] }> {
+  const res = await tbFetch('/participants', { cache: 'no-store' });
+  if (!res) return demo.getParticipants();
+  if (!res.ok) throw new Error('Failed to fetch participants');
+  return res.json();
+}
+
+export async function updateTbParticipants(names: string[]): Promise<{ active: boolean; participants: TbParticipant[] }> {
+  const res = await tbFetch('/participants', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ names }),
+  });
+  if (!res) return demo.updateParticipants(names);
+  if (!res.ok) throw new Error('Failed to update participants');
+  return res.json();
+}
+
+export async function fetchTbSpeakerStats(): Promise<TbSpeakerStats> {
+  const res = await tbFetch('/speaker-stats', { cache: 'no-store' });
+  if (!res) return demo.getSpeakerStats();
+  if (!res.ok) throw new Error('Failed to fetch speaker stats');
+  return res.json();
+}
+
+export async function recordTbSpeakerEvent(participantId: string, durationSec: number = 15): Promise<{ event: TbSpeakerEvent; stats: TbSpeakerStats }> {
+  const res = await tbFetch('/speaker-events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ participantId, durationSec }),
+  });
+  if (!res) return demo.recordSpeakerEvent(participantId, durationSec);
+  if (!res.ok) throw new Error('Failed to record speaker event');
+  return res.json();
+}
+
+export async function recordTbSpeakerBatch(events: { participantId: string; durationSec: number }[]): Promise<{ events: TbSpeakerEvent[]; stats: TbSpeakerStats }> {
+  const res = await tbFetch('/speaker-events/batch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ events }),
+  });
+  if (!res) return demo.recordSpeakerBatch(events);
+  if (!res.ok) throw new Error('Failed to record speaker batch');
+  return res.json();
+}
+
+export async function fetchTbTranscriptNotes(): Promise<{ active: boolean; enabled: boolean; notes: TbTranscriptNote[] }> {
+  const res = await tbFetch('/transcript-notes', { cache: 'no-store' });
+  if (!res) return demo.getTranscriptNotes();
+  if (!res.ok) throw new Error('Failed to fetch transcript notes');
+  return res.json();
+}
+
+export async function createTbTranscriptNote(
+  text: string,
+  participantId?: string,
+): Promise<{ note: TbTranscriptNote; notes: TbTranscriptNote[] }> {
+  const res = await tbFetch('/transcript-notes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, participantId: participantId || undefined }),
+  });
+  if (!res) return demo.createTranscriptNote(text, participantId);
+  if (!res.ok) throw new Error('Failed to create transcript note');
+  return res.json();
+}
+
+const TRANSCRIPTION_OFF: TbTranscriptionStatus = {
+  active: false,
+  state: 'unavailable',
+  sourceId: null,
+  engineAvailable: false,
+  engine: null,
+  model: 'local-server-required',
+  speakerEngine: 'acoustic',
+  currentSpeakerKey: null,
+  currentParticipantId: null,
+  currentSpeakerName: null,
+  currentSpeakerConfidence: 0,
+  latestText: '',
+  updatedAt: new Date(0).toISOString(),
+  audioRetention: 'memory-only',
+  cloudUpload: false,
+  clusters: [],
+  error: '公開PWAではローカル文字起こしを利用できません',
+};
+
+export async function fetchTbTranscriptionStatus(): Promise<TbTranscriptionStatus> {
+  const res = await tbFetch('/transcription/status', { cache: 'no-store' });
+  if (!res) return TRANSCRIPTION_OFF;
+  if (!res.ok) throw new Error('Failed to fetch transcription status');
+  return res.json();
+}
+
+export async function mapTbAutoSpeaker(speakerKey: string, participantId: string): Promise<TbTranscriptionStatus> {
+  const res = await tbFetch(`/transcription/speakers/${encodeURIComponent(speakerKey)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ participantId }),
+  });
+  if (!res) throw new Error('ローカルサーバー接続時のみ話者を対応づけできます');
+  if (!res.ok) throw new Error('Failed to map automatic speaker');
   return res.json();
 }
 
@@ -211,6 +424,15 @@ export function tbMetricsWsUrl(): string {
   }
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${proto}//${window.location.host}${API_BASE_URL}/talkbalancer/ws/metrics`;
+}
+
+// Mode C: 16kHz PCMを自宅PCへ一時送信する専用WebSocket。音声ファイルは作らない。
+export function tbTranscriptionWsUrl(): string {
+  if (API_BASE_URL.startsWith('http')) {
+    return `${API_BASE_URL.replace(/^http/, 'ws')}/talkbalancer/ws/transcription`;
+  }
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${window.location.host}${API_BASE_URL}/talkbalancer/ws/transcription`;
 }
 
 // F-05 幹事リモコンのボタン定義

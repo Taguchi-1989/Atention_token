@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import { DECLARATION_LINES, setTbAgreedAt } from '@/lib/talkbalancer';
 import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
+import { TalkBalancerSetupSteps } from '@/components/talkbalancer/TalkBalancerSetupSteps';
 
 // F-01 開始前宣言
 export default function DeclarationPage() {
@@ -16,6 +17,8 @@ export default function DeclarationPage() {
     <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-2xl space-y-8 text-center">
         <p className="text-primary text-sm tracking-widest">TalkBalancer ─ 開始前宣言</p>
+
+        <TalkBalancerSetupSteps current={1} />
 
         <h1 className="text-2xl sm:text-4xl font-bold leading-relaxed">
           今日は、全員が気持ちよく話せる
