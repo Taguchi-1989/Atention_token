@@ -106,7 +106,7 @@ export default function TalkBalancerLiveStatus() {
   const session = sessionState?.session ?? null;
   const transcriptMode = session?.mode === 'transcript';
   const balance = useMemo(() => summarizeSpeakerBalance(speakerStats), [speakerStats]);
-  const latestNotes = useMemo(() => notes.slice(-3).reverse(), [notes]);
+  const latestNotes = useMemo(() => notes.slice(-5).reverse(), [notes]);
 
   if (!enabled) return null;
 
@@ -199,7 +199,7 @@ export default function TalkBalancerLiveStatus() {
                 ))}
               </ul>
             ) : transcriptMode ? (
-              <p className="mt-3 text-xs text-text-muted">まだメモはありません。幹事操作画面から必要な内容だけ追加できます。</p>
+              <p className="mt-3 text-xs text-text-muted">まだ文字起こしはありません。マイク計測を開始すると約4秒ごとに追加されます。</p>
             ) : null}
           </section>}
 

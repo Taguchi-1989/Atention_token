@@ -13,6 +13,7 @@ import {
 } from '@/lib/talkbalancer';
 import TalkBalancerSpeakerPie from '@/components/TalkBalancerSpeakerPie';
 import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
+import { TalkBalancerTranscriptFeed } from '@/components/talkbalancer/TalkBalancerTranscriptFeed';
 
 const MODE_LABELS: Record<string, string> = {
   volume_only: 'モードA：音量のみ',
@@ -197,23 +198,9 @@ export default function TalkBalancerReportPage() {
       {report.session.mode === 'transcript' && (
         <section className="rounded-xl border border-border bg-surface p-5">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-            <FileText size={18} className="text-primary" /> 文字起こし・補正メモ
+            <FileText size={18} className="text-primary" /> 文字起こし・会話解析
           </h2>
-          {report.transcriptNotes && report.transcriptNotes.length > 0 ? (
-            <div className="space-y-3">
-              {report.transcriptNotes.slice().reverse().map((note) => (
-                <div key={note.id} className="rounded-lg border border-border bg-background/50 p-3">
-                  <div className="mb-1 flex items-center justify-between gap-3 text-xs text-text-muted">
-                    <span>{note.participantName ?? '話者未指定'} ／ {note.source === 'auto' ? '自動' : '手動'}</span>
-                    <span>{formatTime(note.timestamp)}</span>
-                  </div>
-                  <p className="text-sm leading-relaxed">{note.text}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-text-muted">まだ文字メモはありません。</p>
-          )}
+          <TalkBalancerTranscriptFeed notes={report.transcriptNotes ?? []} />
         </section>
       )}
 

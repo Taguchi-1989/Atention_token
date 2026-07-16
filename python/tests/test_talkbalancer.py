@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from attention_ledger.api.main import app
+from attention_ledger.api import talkbalancer as tb
 
 client = TestClient(app)
 
@@ -462,6 +463,14 @@ class TestMetricsAndAnalysis:
 
 
 class TestLocalTranscription:
+    def test_transcription_chunk_interval_is_configurable_and_clamped(self, monkeypatch):
+        monkeypatch.setenv("TB_TRANSCRIPTION_CHUNK_SEC", "7")
+        assert tb._transcription_chunk_seconds() == 7
+        monkeypatch.setenv("TB_TRANSCRIPTION_CHUNK_SEC", "1")
+        assert tb._transcription_chunk_seconds() == 3
+        monkeypatch.setenv("TB_TRANSCRIPTION_CHUNK_SEC", "invalid")
+        assert tb._transcription_chunk_seconds() == 4
+
     def test_status_and_privacy_are_explicit(self):
         client.post("/api/talkbalancer/session", json={"mode": "transcript"})
         status = client.get("/api/talkbalancer/transcription/status").json()

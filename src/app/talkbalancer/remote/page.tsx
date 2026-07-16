@@ -21,6 +21,7 @@ import {
   TbTranscriptionStatus,
 } from '@/lib/talkbalancer';
 import { PrivacyBar } from '@/components/talkbalancer/PrivacyBar';
+import { TalkBalancerTranscriptFeed } from '@/components/talkbalancer/TalkBalancerTranscriptFeed';
 
 function transcriptionStatusLabel(state?: string): string {
   return ({
@@ -198,12 +199,11 @@ export default function RemotePage() {
               )}
             </div>
 
-            {transcriptionStatus?.latestText && (
-              <div className="rounded-xl border border-border bg-background/70 p-3">
-                <p className="text-xs text-text-muted">最新の文字起こし</p>
-                <p className="mt-2 text-sm leading-relaxed">{transcriptionStatus.latestText}</p>
-              </div>
-            )}
+            <TalkBalancerTranscriptFeed
+              notes={transcriptNotes}
+              status={transcriptionStatus}
+              live
+            />
 
             {transcriptionStatus?.clusters.length ? (
               <div className="space-y-2">
@@ -326,18 +326,6 @@ export default function RemotePage() {
               </button>
             </div>
 
-            {transcriptNotes.length > 0 && (
-              <div className="space-y-2">
-                {transcriptNotes.slice(-3).reverse().map((note) => (
-                  <div key={note.id} className="rounded-lg border border-border bg-background/50 p-3 text-sm">
-                    <p className="mb-1 text-xs text-text-muted">
-                      {note.participantName ?? '話者未指定'} ／ {note.source === 'auto' ? '自動' : '手動'} ／ {new Date(note.timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                    <p className="leading-relaxed">{note.text}</p>
-                  </div>
-                ))}
-              </div>
-            )}
           </section>
         )}
 

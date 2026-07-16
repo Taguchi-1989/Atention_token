@@ -23,6 +23,7 @@ import {
   Wine,
 } from 'lucide-react';
 import TalkBalancerSpeakerPie from '@/components/TalkBalancerSpeakerPie';
+import { TalkBalancerTranscriptFeed } from '@/components/talkbalancer/TalkBalancerTranscriptFeed';
 import { useTalkBalancerNoiseMeter } from '@/hooks/useTalkBalancerNoiseMeter';
 import { rmsToRelativeLevel } from '@/lib/talkbalancer-mic';
 import {
@@ -30,6 +31,7 @@ import {
   fetchTbAlerts,
   fetchTbSession,
   fetchTbSpeakerStats,
+  fetchTbTranscriptNotes,
   isDemoMode,
   NOISE_LABELS,
   recordTbSpeakerBatch,
@@ -38,6 +40,7 @@ import {
   TbAlert,
   TbSession,
   TbSpeakerStats,
+  TbTranscriptNote,
 } from '@/lib/talkbalancer';
 
 const ALERT_POLL_MS = 2000;
@@ -74,6 +77,7 @@ export default function MobileOneDevicePage() {
   const [checked, setChecked] = useState(false);
   const [session, setSession] = useState<TbSession | null>(null);
   const [speakerStats, setSpeakerStats] = useState<TbSpeakerStats | null>(null);
+  const [transcriptNotes, setTranscriptNotes] = useState<TbTranscriptNote[]>([]);
   const [alert, setAlert] = useState<TbAlert | null>(null);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [sending, setSending] = useState<AlertType | null>(null);
@@ -146,8 +150,14 @@ export default function MobileOneDevicePage() {
 
     const loadStats = async () => {
       try {
-        const stats = await fetchTbSpeakerStats();
-        if (!stopped) setSpeakerStats(stats);
+        const [stats, notesResult] = await Promise.all([
+          fetchTbSpeakerStats(),
+          session.mode === 'transcript' ? fetchTbTranscriptNotes() : Promise.resolve(null),
+        ]);
+        if (!stopped) {
+          setSpeakerStats(stats);
+          if (notesResult) setTranscriptNotes(notesResult.notes);
+        }
       } catch {
         // 補助表示は次回更新に任せる。
       }
@@ -431,11 +441,13 @@ export default function MobileOneDevicePage() {
                 </p>
                 <p className="mt-1 text-xs text-text-muted">{transcriptionStateLabel(transcription?.state)} ／ 音声保存なし</p>
                 {transcription?.currentSpeakerKey && <p className="mt-1 text-[11px] text-text-muted">約3秒ごとに自動切替 ／ 推定確信度 {Math.round(transcription.currentSpeakerConfidence * 100)}%</p>}
-                {transcription?.latestText && <p className="mt-3 rounded-lg bg-surface px-3 py-2 text-sm leading-relaxed">{transcription.latestText}</p>}
                 {transcription?.error && <p className="mt-2 text-xs text-warning">{transcription.error}</p>}
                 {transcription?.clusters.some((cluster) => !cluster.participantId) && (
                   <p className="mt-2 text-xs text-text-muted">未対応の「話者1」などは、幹事リモコンで参加者名に一度対応づけると以後自動で切り替わります。</p>
                 )}
+                <div className="mt-3">
+                  <TalkBalancerTranscriptFeed notes={transcriptNotes} status={transcription} live compact />
+                </div>
               </section>
             )}
 

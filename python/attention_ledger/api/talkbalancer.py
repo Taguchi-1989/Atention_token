@@ -2,7 +2,7 @@
 
 要件定義書: docs/talkbalancer/REQUIREMENTS_v0.2.md
 
-セッションとアラートはメモリ内にのみ保持する。録音・文字起こし・永続化は
+セッション、アラート、文字起こし本文はメモリ内にのみ保持する。録音と永続化は
 行わず、セッション終了（DELETE）で全データを破棄する（非機能要件 10.1）。
 1サーバー = 1テーブル（1セッション）の前提。
 """
@@ -10,6 +10,7 @@
 import asyncio
 import json
 import math
+import os
 import threading
 import time
 import uuid
@@ -738,7 +739,15 @@ async def ws_metrics(ws: WebSocket):
 # 文字起こし・話者特徴の処理後にメモリから破棄する。
 # ════════════════════════════════════════════════════════
 
-_TRANSCRIPTION_CHUNK_SEC = 6
+def _transcription_chunk_seconds() -> int:
+    try:
+        configured = int(os.getenv("TB_TRANSCRIPTION_CHUNK_SEC", "4"))
+    except ValueError:
+        configured = 4
+    return max(3, min(12, configured))
+
+
+_TRANSCRIPTION_CHUNK_SEC = _transcription_chunk_seconds()
 _SPEAKER_CHUNK_SEC = 3
 
 
