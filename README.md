@@ -85,7 +85,7 @@ python -m uvicorn attention_ledger.api.main:app --host 127.0.0.1 --port 8010
 | --- | --- |
 | TypeScript型チェック | 成功 |
 | Jest | 34件成功 |
-| Python pytest | 93件成功 |
+| Python pytest | 94件成功＋実音声E2E 1件成功（明示実行） |
 | ESLint | 警告・エラー0 |
 | Next.js本番ビルド | 21ページ生成成功 |
 | ローカル統合版 | `/talkbalancer`・`/mobile`・`/hardware` がHTTP 200 |
@@ -253,6 +253,20 @@ python -m pytest -k "not playwright" -m "not ollama"
 
 Ollamaモデルのスモークテストは、Ollamaと対象モデルを起動したうえで
 `python -m pytest -m ollama` を個別に実行します。
+
+TalkBalancerの実音声テストには、保存済みの
+[`voicevox-zundamon-transcription.wav`](python/tests/fixtures/audio/voicevox-zundamon-transcription.wav)
+を使用します。音声クレジットは **VOICEVOX:ずんだもん** です。
+
+```powershell
+cd python
+$env:TB_RUN_AUDIO_AI="1"
+$env:TB_WHISPER_MODEL="small"
+python -m pytest -q tests/test_voicevox_audio_fixture.py
+```
+
+通常実行ではWAV形式とクレジットを検査し、上記の明示実行では実際にWhisperへ入力して期待語を検査します。素材の生成条件と利用規約は
+[`python/tests/fixtures/audio/README.md`](python/tests/fixtures/audio/README.md) に記載しています。
 
 ### Frontend
 

@@ -27,6 +27,18 @@ uvicorn attention_ledger.api.main:app --reload
 
 TalkBalancerモードCは `faster-whisper` と `pyannote.audio` を遅延ロードする。音声は16kHz PCMとしてWebSocketで受け、ファイル保存せず最大12秒のメモリバッファで処理する。追加依存がない場合も、音量計測と簡易音響クラスタによる匿名話者切替は利用できる。
 
+## VOICEVOX音声による文字起こし確認
+
+テスト素材 [`tests/fixtures/audio/voicevox-zundamon-transcription.wav`](tests/fixtures/audio/voicevox-zundamon-transcription.wav) を使い、ローカルWhisperで期待語を認識できるか確認できます。
+
+```powershell
+$env:TB_RUN_AUDIO_AI="1"
+$env:TB_WHISPER_MODEL="small"
+python -m pytest -q tests/test_voicevox_audio_fixture.py
+```
+
+通常のpytestでは音声形式とクレジットだけを検査し、モデル推論はスキップします。音声クレジットは **VOICEVOX:ずんだもん** です。詳細と利用条件は [`tests/fixtures/audio/README.md`](tests/fixtures/audio/README.md) を参照してください。
+
 ### Environment
 
 - `ATTENTION_LEDGER_TASKS_DIR` (default: `python/tasks`)
