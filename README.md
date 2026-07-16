@@ -21,6 +21,7 @@ Attention Ledger sends a simulated first-time user (an LLM agent) to complete ta
 | 公開画面 | URL |
 | --- | --- |
 | Attention Ledger トップ | <https://talkbalancer.pages.dev/> |
+| GitHub Pages ミラー | <https://taguchi-1989.github.io/Atention_token/> |
 | TalkBalancer トップ | <https://talkbalancer.pages.dev/talkbalancer> |
 | TalkBalancer 携帯1台モード | <https://talkbalancer.pages.dev/talkbalancer/mobile> |
 | TalkBalancer 機器選定ガイド | <https://talkbalancer.pages.dev/talkbalancer/hardware> |
