@@ -8,17 +8,24 @@ Attention Ledger sends a simulated first-time user (an LLM agent) to complete ta
 
 ---
 
-## Live Demo
+## 公開URL（クリックで起動）
 
-TalkBalancer のPWA版は Cloudflare Pages で公開しています。
+インストール不要です。以下のリンクをブラウザで開くだけで利用できます。
 
-- **トップ**: <https://talkbalancer.pages.dev/talkbalancer>
-- **携帯1台モード**: <https://talkbalancer.pages.dev/talkbalancer/mobile>
-- **機器選定ガイド**: <https://talkbalancer.pages.dev/talkbalancer/hardware>
+<p align="center">
+  <a href="https://talkbalancer.pages.dev/"><strong>▶ Attention Ledger 公開版を開く</strong></a>
+  &nbsp;・&nbsp;
+  <a href="https://talkbalancer.pages.dev/talkbalancer"><strong>▶ TalkBalancer を開く</strong></a>
+</p>
 
-Cloudflare Pages は静的ホスティングのためFastAPIは動きませんが、TalkBalancerは自動的に**端末内デモモード**へ切り替わります。セッション・通知・参加者情報は同じブラウザの `localStorage` にのみ保持され、音声波形は保存・クラウド送信されません。ローカル文字起こし・自動話者切替は公開PWAでは動かず、API・WebSocketを含む下記のローカル実行またはDockerで利用できます。
+| 公開画面 | URL |
+| --- | --- |
+| Attention Ledger トップ | <https://talkbalancer.pages.dev/> |
+| TalkBalancer トップ | <https://talkbalancer.pages.dev/talkbalancer> |
+| TalkBalancer 携帯1台モード | <https://talkbalancer.pages.dev/talkbalancer/mobile> |
+| TalkBalancer 機器選定ガイド | <https://talkbalancer.pages.dev/talkbalancer/hardware> |
 
-従来のGitHub Pages版: <https://taguchi-1989.github.io/Atention_token/>
+公開版はCloudflare Pagesによる静的ホスティングです。FastAPIを必要とするAttention Ledgerのタスク実行機能はローカル版を使用してください。TalkBalancerは自動的に**端末内デモモード**へ切り替わります。セッション・通知・参加者情報は同じブラウザの `localStorage` にのみ保持され、音声波形は保存・クラウド送信されません。ローカル文字起こし・自動話者切替は公開版では動かず、API・WebSocketを含む下記のローカル実行またはDockerで利用できます。
 
 ---
 
