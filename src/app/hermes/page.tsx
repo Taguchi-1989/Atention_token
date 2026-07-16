@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import DashboardLayout from '@/components/DashboardLayout';
 import {
   createHermesRun,
@@ -289,9 +290,12 @@ export default function HermesPage() {
               </div>
               {selected && selectedStep?.screenshot_path ? (
                 <div className="space-y-4 p-4">
-                  <img
+                  <Image
                     src={getHermesScreenshotUrl(selected.id, selectedStep.step_index)}
                     alt="Hermes redacted screenshot"
+                    width={1280}
+                    height={720}
+                    unoptimized
                     className="aspect-video w-full rounded-lg border border-white/10 object-cover"
                   />
                   <div className="grid gap-3 text-sm md:grid-cols-3">

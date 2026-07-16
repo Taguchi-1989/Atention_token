@@ -15,6 +15,12 @@ const customJestConfig = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
+  // Keep generated output and local agent worktrees out of the project suite.
+  testPathIgnorePatterns: [
+    '<rootDir>/.claude/worktrees/',
+    '<rootDir>/.next/',
+    '<rootDir>/out/',
+  ],
 };
 
 module.exports = createJestConfig(customJestConfig);

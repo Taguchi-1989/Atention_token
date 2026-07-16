@@ -66,7 +66,7 @@ export default function Home() {
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto space-y-8">
-        <header className="relative py-12 px-6 rounded-3xl overflow-hidden bg-gradient-to-r from-surface-highlight to-surface border border-white/5 shadow-2xl">
+        <header className="relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-r from-surface-highlight to-surface px-4 py-8 shadow-2xl sm:px-6 sm:py-12">
            <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
                 <Zap size={300} strokeWidth={1} />
            </div>
@@ -80,7 +80,7 @@ export default function Home() {
                     {apiOk === false ? 'API オフライン' : apiOk === true ? 'システム稼働中' : '接続中...'}
                 </div>
 
-                <h2 className="text-5xl md:text-6xl font-bold mb-6 tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-white via-blue-100 to-white/40">
+                <h2 className="mb-6 bg-gradient-to-br from-white via-blue-100 to-white/40 bg-clip-text text-4xl font-bold tracking-tight text-transparent sm:text-5xl md:text-6xl">
                     Attention<span className="font-light text-primary">Ledger</span>
                 </h2>
 

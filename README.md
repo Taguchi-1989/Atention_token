@@ -172,7 +172,8 @@ npm ci
 npm run dev       # http://localhost:3000
 ```
 
-Set `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api` in `.env.local` at the repository root when the API runs on a different origin.
+In development, Next.js automatically proxies `/api/*` to `http://127.0.0.1:8000`.
+If the API runs on another host, set `ATTENTION_LEDGER_API_URL` in the repository root `.env.local`.
 
 ---
 
