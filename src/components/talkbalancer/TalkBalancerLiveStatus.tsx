@@ -26,8 +26,8 @@ function transcriptionLabel(state?: string): string {
   return ({
     off: '文字起こし停止中',
     starting: '文字起こし準備中',
-    listening: '文字起こし中',
-    processing: '文字起こし処理中',
+    listening: '文字起こし稼働中',
+    processing: '文字起こし稼働中（処理中）',
     unavailable: '文字起こしモデル未導入',
     error: '文字起こしを確認してください',
   } as Record<string, string>)[state ?? 'off'] ?? '文字起こし停止中';
@@ -105,6 +105,8 @@ export default function TalkBalancerLiveStatus() {
   const measuringElsewhere = measuring && Boolean(runtime?.sourcePath) && runtime?.sourcePath !== pathname;
   const session = sessionState?.session ?? null;
   const transcriptMode = session?.mode === 'transcript';
+  const transcriptionRunning = transcriptMode && transcription?.active
+    && ['starting', 'listening', 'processing'].includes(transcription.state);
   const balance = useMemo(() => summarizeSpeakerBalance(speakerStats), [speakerStats]);
   const latestNotes = useMemo(() => notes.slice(-5).reverse(), [notes]);
 
@@ -219,7 +221,12 @@ export default function TalkBalancerLiveStatus() {
         {measuring ? <Mic size={16} className="text-red-300" /> : <MicOff size={16} className="text-slate-400" />}
         <span className="text-left">
           <span className="block text-xs font-semibold">{measuring ? measuringElsewhere ? '別画面で計測中' : '計測中（保存なし）' : sessionState?.active ? '計測停止中' : '停止中'}</span>
-          {transcriptMode && <span className="block text-[10px] text-secondary">{transcriptionLabel(transcription?.state)}</span>}
+          {transcriptMode && (
+            <span className={`flex items-center gap-1.5 text-[10px] ${transcriptionRunning ? 'text-success' : 'text-secondary'}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${transcriptionRunning ? 'animate-pulse bg-success' : 'bg-slate-500'}`} />
+              {transcriptionLabel(transcription?.state)}
+            </span>
+          )}
         </span>
       </button>
     </aside>
